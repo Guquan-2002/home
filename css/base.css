@@ -14,6 +14,11 @@ body {
     background-size: 400% 400%;
     transition: background 2s ease-in-out;
     animation: gradient-flow 8s ease-in-out infinite alternate;
+    /* 移动端优化 */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 }
 
 body::before {
@@ -29,4 +34,13 @@ body::before {
     animation: glow-drift 4s linear infinite alternate;
     mix-blend-mode: soft-light;
     will-change: transform;
+}
+
+/* 移动端滚动优化 */
+@media (max-width: 768px) {
+    body {
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
 }

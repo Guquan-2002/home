@@ -1,0 +1,175 @@
+/* 移动端专用优化样式 */
+
+/* 防止iOS Safari地址栏影响视口高度 */
+@supports (-webkit-touch-callout: none) {
+    body {
+        min-height: -webkit-fill-available;
+    }
+}
+
+/* 移动端输入框优化 - 防止自动缩放 */
+@media (max-width: 768px) {
+    input[type="text"],
+    input[type="password"],
+    input[type="number"],
+    textarea,
+    select {
+        font-size: 16px !important;
+    }
+}
+
+/* 触摸设备优化 */
+@media (hover: none) and (pointer: coarse) {
+    /* 移除所有悬停效果的延迟 */
+    * {
+        -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+    }
+
+    /* 按钮点击反馈 */
+    button:active {
+        opacity: 0.8;
+    }
+
+    /* 链接点击反馈 */
+    a:active {
+        opacity: 0.7;
+    }
+}
+
+/* 移动端聊天面板键盘适配 */
+@media (max-width: 768px) {
+    /* 当键盘弹出时，确保输入框可见 */
+    #chat-panel {
+        height: 100dvh; /* 使用动态视口高度 */
+    }
+
+    /* iOS Safari 键盘适配 */
+    @supports (-webkit-touch-callout: none) {
+        #chat-panel {
+            height: -webkit-fill-available;
+        }
+    }
+}
+
+/* 横屏模式下的特殊处理 */
+@media (max-width: 768px) and (orientation: landscape) {
+    /* 减少垂直空间占用 */
+    #time-container {
+        margin-bottom: 0.8rem;
+    }
+
+    #weather-container {
+        margin-bottom: 1.2rem;
+    }
+
+    /* 聊天面板优化 */
+    #chat-header {
+        padding: 10px 12px;
+    }
+
+    #chat-input-area {
+        padding: 8px 12px;
+    }
+}
+
+/* 小屏幕设备的滚动条优化 */
+@media (max-width: 768px) {
+    /* 隐藏滚动条但保持滚动功能 */
+    #chat-messages::-webkit-scrollbar,
+    #chat-history::-webkit-scrollbar,
+    .chat-settings-content::-webkit-scrollbar {
+        width: 2px;
+    }
+
+    #chat-messages::-webkit-scrollbar-thumb,
+    #chat-history::-webkit-scrollbar-thumb,
+    .chat-settings-content::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.15);
+    }
+}
+
+/* 移动端性能优化 */
+@media (max-width: 768px) {
+    /* 减少动画复杂度 */
+    body::before {
+        animation: none;
+        opacity: 0.5;
+    }
+
+    /* 简化背景动画 */
+    body {
+        animation-duration: 12s;
+    }
+
+    /* 减少星空效果 */
+    .stars-bg::before,
+    .stars-bg::after {
+        display: none;
+    }
+}
+
+/* 超小屏幕设备 */
+@media (max-width: 320px) {
+    #time {
+        font-size: 3rem !important;
+    }
+
+    #date {
+        font-size: 0.9rem !important;
+    }
+
+    #weather-container {
+        font-size: 1rem !important;
+        padding: 6px 12px !important;
+    }
+
+    #search-input {
+        font-size: 0.9rem !important;
+        padding: 12px 14px 12px 38px !important;
+    }
+
+    .search-icon {
+        left: 12px !important;
+        font-size: 0.9rem !important;
+    }
+}
+
+/* 平板设备优化 */
+@media (min-width: 769px) and (max-width: 1024px) {
+    #chat-panel {
+        width: 420px;
+    }
+
+    #time {
+        font-size: 6rem;
+    }
+
+    #date {
+        font-size: 1.4rem;
+    }
+
+    #weather-container {
+        font-size: 1.6rem;
+    }
+}
+
+/* 触摸设备的可访问性优化 */
+@media (hover: none) {
+    /* 增大最小触摸目标尺寸 (44x44px) */
+    button,
+    a,
+    input[type="checkbox"],
+    .history-item,
+    .chat-msg {
+        min-height: 44px;
+    }
+
+    /* 确保按钮有足够的间距 */
+    #chat-header-actions {
+        gap: 8px;
+    }
+
+    #chat-history-actions {
+        gap: 6px;
+    }
+}

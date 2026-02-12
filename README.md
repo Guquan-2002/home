@@ -25,7 +25,8 @@ home/
 |   |-- base.css
 |   |-- animations.css
 |   |-- components.css
-|   `-- chat.css
+|   |-- chat.css
+|   `-- mobile.css
 |-- js/
 |   |-- main.js
 |   |-- config.js
@@ -35,6 +36,7 @@ home/
 |   |-- weather.js
 |   |-- network.js
 |   |-- starfield.js
+|   |-- mobile.js
 |   |-- chat.js
 |   `-- chat/
 |       |-- api.js
@@ -147,8 +149,46 @@ Seniverse site: https://www.seniverse.com/
 - Chrome / Edge 90+
 - Firefox 88+
 - Safari 14+
+- Mobile browsers (iOS Safari 14+, Chrome Mobile, Firefox Mobile)
 
 Requires support for ES modules and CSS variables.
+
+## Mobile Optimization
+
+This start page is fully optimized for mobile devices with the following enhancements:
+
+### Responsive Design
+- Adaptive layout for phones, tablets, and desktops
+- Optimized font sizes and spacing for different screen sizes
+- Support for both portrait and landscape orientations
+- Dynamic viewport height handling (iOS Safari compatible)
+
+### Touch Interactions
+- Enlarged touch targets (minimum 44x44px)
+- Haptic feedback for important actions (if supported)
+- Smooth touch scrolling with momentum
+- Prevention of double-tap zoom
+- Optimized button sizes and spacing
+
+### Chat Panel Mobile Features
+- Full-screen chat panel on mobile devices
+- Keyboard-aware input field positioning
+- Auto-adjusting textarea height
+- Always-visible copy and retry buttons
+- Optimized code block scrolling
+- Background scroll lock when chat is open
+
+### Performance
+- Reduced animation complexity on mobile
+- Optimized star field effects
+- Hardware-accelerated scrolling
+- Efficient touch event handling
+
+### Input Optimization
+- 16px minimum font size to prevent iOS auto-zoom
+- Proper keyboard handling (Enter to submit)
+- Smooth keyboard show/hide transitions
+- Input field stays visible when keyboard appears
 
 ## Customization
 
@@ -191,6 +231,17 @@ export const CONFIG = {
 MIT License
 
 ## Changelog
+
+### v2.1.0
+
+- Added comprehensive mobile device optimization
+- Implemented responsive design for all screen sizes
+- Added touch interaction enhancements
+- Optimized chat panel for mobile devices
+- Added keyboard-aware input handling
+- Implemented haptic feedback support
+- Added landscape/portrait orientation support
+- Optimized performance for mobile browsers
 
 ### v2.0.0
 

@@ -160,7 +160,144 @@
 
 /* --- 响应式设计 --- */
 @media (max-width: 768px) {
-    #time { font-size: 5rem; }
-    #date { font-size: 1.2rem; }
-    #weather-container { font-size: 1.3rem; }
+    .container {
+        padding: 15px;
+        justify-content: flex-start;
+        padding-top: 15vh;
+    }
+
+    #time-container {
+        margin-bottom: 1.5rem;
+    }
+
+    #time {
+        font-size: 4.5rem;
+        letter-spacing: 1px;
+    }
+
+    #date {
+        font-size: 1.1rem;
+        margin-top: 0.5rem;
+    }
+
+    #weather-container {
+        font-size: 1.2rem;
+        padding: 8px 16px;
+        margin-bottom: 2rem;
+        gap: 10px;
+    }
+
+    #search-container {
+        max-width: 100%;
+        padding: 0 10px;
+    }
+
+    #search-input {
+        padding: 16px 18px 16px 45px;
+        font-size: 1rem;
+        border-radius: 25px;
+    }
+
+    .search-icon {
+        left: 16px;
+        font-size: 1.1rem;
+    }
+
+    #network-status {
+        bottom: 12px;
+        right: 15px;
+        font-size: 0.85rem;
+        padding: 6px 10px;
+    }
+
+    #network-indicator {
+        width: 9px;
+        height: 9px;
+    }
+}
+
+/* 小屏幕手机优化 */
+@media (max-width: 375px) {
+    .container {
+        padding: 12px;
+        padding-top: 12vh;
+    }
+
+    #time {
+        font-size: 3.5rem;
+    }
+
+    #date {
+        font-size: 1rem;
+    }
+
+    #weather-container {
+        font-size: 1.1rem;
+        padding: 7px 14px;
+    }
+
+    #search-input {
+        padding: 14px 16px 14px 42px;
+        font-size: 0.95rem;
+    }
+
+    .search-icon {
+        left: 14px;
+        font-size: 1rem;
+    }
+
+    #network-status {
+        font-size: 0.8rem;
+        padding: 5px 8px;
+    }
+}
+
+/* 横屏模式优化 */
+@media (max-width: 768px) and (orientation: landscape) {
+    .container {
+        padding-top: 8vh;
+    }
+
+    #time-container {
+        margin-bottom: 1rem;
+    }
+
+    #time {
+        font-size: 3.5rem;
+    }
+
+    #date {
+        font-size: 1rem;
+    }
+
+    #weather-container {
+        margin-bottom: 1.5rem;
+        font-size: 1.1rem;
+    }
+}
+
+/* 超大屏幕优化 */
+@media (min-width: 1920px) {
+    #time {
+        font-size: 8rem;
+    }
+
+    #date {
+        font-size: 1.8rem;
+    }
+
+    #weather-container {
+        font-size: 2rem;
+        padding: 12px 24px;
+    }
+
+    #search-input {
+        font-size: 1.3rem;
+        padding: 20px 24px 20px 55px;
+    }
+
+    .search-icon {
+        font-size: 1.3rem;
+        left: 22px;
+    }
 }

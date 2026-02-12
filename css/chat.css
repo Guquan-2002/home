@@ -866,10 +866,36 @@
 
 /* Mobile adjustments */
 @media (max-width: 768px) {
-    #chat-panel {
-        width: 100%;
+    /* 聊天按钮移动端优化 */
+    #chat-toggle {
+        right: 15px;
+        width: 56px;
+        height: 56px;
+        font-size: 1.4rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     }
 
+    /* 聊天面板全屏显示 */
+    #chat-panel {
+        width: 100%;
+        border-left: none;
+    }
+
+    /* 头部优化 */
+    #chat-header {
+        padding: 16px 14px;
+    }
+
+    #chat-title {
+        font-size: 1.1rem;
+    }
+
+    #chat-header-actions button {
+        padding: 6px 10px;
+        font-size: 1rem;
+    }
+
+    /* 设置面板优化 */
     #chat-settings .chat-settings-row {
         grid-template-columns: 1fr;
     }
@@ -882,5 +908,180 @@
     .chat-settings-footer {
         padding-left: 12px;
         padding-right: 12px;
+    }
+
+    #chat-settings input,
+    #chat-settings textarea,
+    #chat-settings select {
+        font-size: 16px; /* 防止iOS自动缩放 */
+        padding: 12px 14px;
+    }
+
+    /* 历史记录面板优化 */
+    #chat-history {
+        max-height: 35vh;
+        padding: 10px 12px;
+    }
+
+    .history-item {
+        padding: 10px 12px;
+        font-size: 0.9rem;
+    }
+
+    /* 消息列表优化 */
+    #chat-messages {
+        padding: 12px;
+        gap: 10px;
+    }
+
+    .chat-msg {
+        max-width: 90%;
+        font-size: 0.95rem;
+        padding: 12px 14px;
+    }
+
+    .chat-msg.system {
+        max-width: 100%;
+        font-size: 0.82rem;
+    }
+
+    /* 代码块优化 */
+    .chat-msg.assistant pre {
+        margin: 0.5em -4px;
+        border-radius: 6px;
+        padding: 10px;
+        font-size: 0.8rem;
+    }
+
+    .chat-msg.assistant pre code {
+        font-size: 0.78rem;
+    }
+
+    .code-copy-btn {
+        opacity: 1; /* 移动端始终显示复制按钮 */
+        padding: 6px 8px;
+        font-size: 0.8rem;
+    }
+
+    /* 重试按钮移动端始终显示 */
+    .msg-retry-btn {
+        opacity: 0.7;
+        padding: 6px 10px;
+        font-size: 0.8rem;
+    }
+
+    /* 输入区域优化 */
+    #chat-input-area {
+        padding: 12px;
+        gap: 10px;
+    }
+
+    #chat-input {
+        font-size: 16px; /* 防止iOS自动缩放 */
+        padding: 12px 14px;
+        max-height: 100px;
+        border-radius: 14px;
+    }
+
+    #chat-send-btn,
+    #chat-stop-btn {
+        width: 44px;
+        height: 44px;
+        font-size: 1rem;
+    }
+
+    /* 设置按钮优化 */
+    #cfg-save-btn {
+        padding: 12px 16px;
+        font-size: 0.9rem;
+    }
+
+    #cfg-close-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 0.9rem;
+    }
+}
+
+/* 小屏幕手机优化 (iPhone SE等) */
+@media (max-width: 375px) {
+    #chat-toggle {
+        width: 52px;
+        height: 52px;
+        right: 12px;
+    }
+
+    #chat-header {
+        padding: 14px 12px;
+    }
+
+    #chat-title {
+        font-size: 1rem;
+    }
+
+    #chat-header-actions button {
+        padding: 5px 8px;
+        font-size: 0.9rem;
+    }
+
+    #chat-messages {
+        padding: 10px;
+    }
+
+    .chat-msg {
+        font-size: 0.9rem;
+        padding: 10px 12px;
+    }
+
+    #chat-input {
+        font-size: 16px;
+        padding: 10px 12px;
+    }
+
+    #chat-send-btn,
+    #chat-stop-btn {
+        width: 40px;
+        height: 40px;
+    }
+}
+
+/* 横屏模式优化 */
+@media (max-width: 768px) and (orientation: landscape) {
+    #chat-history {
+        max-height: 30vh;
+    }
+
+    #chat-input {
+        max-height: 80px;
+    }
+}
+
+/* 触摸设备优化 */
+@media (hover: none) and (pointer: coarse) {
+    /* 增大可点击区域 */
+    #chat-header-actions button {
+        min-width: 36px;
+        min-height: 36px;
+    }
+
+    .history-item-edit,
+    .history-item-delete {
+        min-width: 32px;
+        min-height: 32px;
+        padding: 6px 8px;
+    }
+
+    /* 移除悬停效果，使用点击效果 */
+    #chat-toggle:active {
+        transform: translateY(-50%) scale(0.95);
+    }
+
+    #chat-send-btn:active,
+    #chat-stop-btn:active {
+        transform: scale(0.95);
+    }
+
+    .code-copy-btn:active {
+        transform: scale(0.95);
     }
 }

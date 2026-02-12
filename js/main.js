@@ -6,6 +6,7 @@ import { promptWeatherSetupIfNeeded, runWeatherCheck, startWeatherUpdater } from
 import { runNetworkCheck, startNetworkMonitor } from './network.js';
 import { generateStars } from './starfield.js';
 import { initChat } from './chat.js';
+import { initMobileEnhancements } from './mobile.js';
 
 async function init() {
     initElements();
@@ -22,6 +23,7 @@ async function init() {
     startWeatherUpdater(CONFIG.WEATHER_UPDATE_INTERVAL);
 
     initChat();
+    initMobileEnhancements();
 }
 
 document.addEventListener('DOMContentLoaded', init);
