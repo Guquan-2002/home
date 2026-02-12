@@ -42,9 +42,6 @@ home/
 |       |-- history.js
 |       |-- markdown.js
 |       `-- ui.js
-|-- start-server.bat
-|-- start-server.sh
-|-- start-server-hidden.vbs
 `-- README.md
 ```
 
