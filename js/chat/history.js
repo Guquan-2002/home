@@ -3,7 +3,9 @@
 const DEFAULT_SESSION_TITLE = 'New chat';
 
 function buildSessionTitle(messages) {
-    const firstUserMessage = messages.find((message) => message.role === 'user');
+    const firstUserMessage = messages.find((message) => (
+        message.role === 'user' && !message?.meta?.isPrefixMessage
+    ));
     if (!firstUserMessage) return DEFAULT_SESSION_TITLE;
 
     const plainText = (firstUserMessage.content || '').trim();
@@ -37,7 +39,7 @@ function normalizeMessage(rawMessage) {
         role,
         content: role === 'assistant'
             ? stripSourcesSection(rawContent || rawDisplayContent).trim()
-            : rawContent
+            : (rawContent || rawDisplayContent).trim()
     };
 
     if (!normalized.content.trim()) {
@@ -46,11 +48,11 @@ function normalizeMessage(rawMessage) {
 
     const normalizedMeta = {};
 
-    if (role === 'assistant') {
-        const displayContent = rawDisplayContent || rawContent;
-        if (displayContent && displayContent !== normalized.content) {
-            normalizedMeta.displayContent = displayContent;
-        }
+    const displayContent = role === 'assistant'
+        ? stripSourcesSection(rawDisplayContent || rawContent)
+        : (rawDisplayContent || rawContent);
+    if (displayContent && displayContent !== normalized.content) {
+        normalizedMeta.displayContent = displayContent;
     }
 
     if (Number.isFinite(rawMeta.tokenEstimate) && rawMeta.tokenEstimate > 0) {
@@ -59,6 +61,22 @@ function normalizeMessage(rawMessage) {
 
     if (Number.isFinite(rawMeta.createdAt) && rawMeta.createdAt > 0) {
         normalizedMeta.createdAt = rawMeta.createdAt;
+    }
+
+    if (typeof rawMeta.contextContent === 'string' && rawMeta.contextContent.trim()) {
+        normalizedMeta.contextContent = rawMeta.contextContent.trim();
+    }
+
+    if (rawMeta.displayRole === 'system' || rawMeta.displayRole === 'assistant' || rawMeta.displayRole === 'user') {
+        normalizedMeta.displayRole = rawMeta.displayRole;
+    }
+
+    if (rawMeta.isPrefixMessage === true) {
+        normalizedMeta.isPrefixMessage = true;
+    }
+
+    if (typeof rawMeta.prefixType === 'string' && rawMeta.prefixType) {
+        normalizedMeta.prefixType = rawMeta.prefixType;
     }
 
     if (typeof rawMeta.messageId === 'string' && rawMeta.messageId.trim()) {
@@ -73,7 +91,7 @@ function normalizeMessage(rawMessage) {
 }
 
 function getMessageDisplayContent(message) {
-    if (message.role === 'assistant' && typeof message?.meta?.displayContent === 'string') {
+    if (typeof message?.meta?.displayContent === 'string') {
         return message.meta.displayContent;
     }
 

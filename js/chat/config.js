@@ -5,6 +5,27 @@ function parsePositiveInteger(rawValue) {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+function parseBoolean(rawValue, fallback = false) {
+    if (typeof rawValue === 'boolean') {
+        return rawValue;
+    }
+
+    if (typeof rawValue === 'string') {
+        if (rawValue === 'true') return true;
+        if (rawValue === 'false') return false;
+    }
+
+    return fallback;
+}
+
+function normalizeNameField(rawValue, fallback) {
+    if (typeof rawValue !== 'string') {
+        return fallback;
+    }
+
+    return rawValue.trim();
+}
+
 function normalizeStoredConfig(raw) {
     return {
         apiUrl: typeof raw.apiUrl === 'string' && raw.apiUrl.trim() ? raw.apiUrl.trim() : GEMINI_DEFAULTS.apiUrl,
@@ -13,7 +34,10 @@ function normalizeStoredConfig(raw) {
         model: typeof raw.model === 'string' ? raw.model.trim() : '',
         systemPrompt: typeof raw.systemPrompt === 'string' ? raw.systemPrompt : GEMINI_DEFAULTS.systemPrompt,
         thinkingBudget: parsePositiveInteger(raw.thinkingBudget),
-        searchMode: typeof raw.searchMode === 'string' ? raw.searchMode : GEMINI_DEFAULTS.searchMode
+        searchMode: typeof raw.searchMode === 'string' ? raw.searchMode : GEMINI_DEFAULTS.searchMode,
+        prefixWithTime: parseBoolean(raw.prefixWithTime, GEMINI_DEFAULTS.prefixWithTime),
+        prefixWithName: parseBoolean(raw.prefixWithName, GEMINI_DEFAULTS.prefixWithName),
+        userName: normalizeNameField(raw.userName, GEMINI_DEFAULTS.userName)
     };
 }
 
@@ -25,7 +49,10 @@ export function createConfigManager(elements, storageKey) {
         cfgModel,
         cfgPrompt,
         cfgThinkingBudget,
-        cfgSearchMode
+        cfgSearchMode,
+        cfgPrefixWithTime,
+        cfgPrefixWithName,
+        cfgUserName
     } = elements;
 
     function applyConfigToForm(config) {
@@ -35,6 +62,9 @@ export function createConfigManager(elements, storageKey) {
         cfgModel.value = config.model;
         cfgPrompt.value = config.systemPrompt;
         cfgThinkingBudget.value = config.thinkingBudget ?? '';
+        cfgPrefixWithTime.checked = config.prefixWithTime;
+        cfgPrefixWithName.checked = config.prefixWithName;
+        cfgUserName.value = config.userName;
 
         if (cfgSearchMode) {
             cfgSearchMode.value = config.searchMode;
@@ -49,7 +79,10 @@ export function createConfigManager(elements, storageKey) {
             model: cfgModel.value,
             systemPrompt: cfgPrompt.value,
             thinkingBudget: cfgThinkingBudget.value,
-            searchMode: cfgSearchMode ? cfgSearchMode.value : GEMINI_DEFAULTS.searchMode
+            searchMode: cfgSearchMode ? cfgSearchMode.value : GEMINI_DEFAULTS.searchMode,
+            prefixWithTime: cfgPrefixWithTime.checked,
+            prefixWithName: cfgPrefixWithName.checked,
+            userName: cfgUserName.value
         });
     }
 

@@ -47,12 +47,16 @@
     }
 
 function findLastMessageIndex(messages, role, content) {
-        for (let index = messages.length - 1; index >= 0; index -= 1) {
-            const message = messages[index];
-            if (message.role === role && message.content === content) {
-                return index;
-            }
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+        const message = messages[index];
+        const displayContent = typeof message?.meta?.displayContent === 'string'
+            ? message.meta.displayContent
+            : '';
+
+        if (message.role === role && (message.content === content || displayContent === content)) {
+            return index;
         }
+    }
 
     return -1;
 }
@@ -69,17 +73,19 @@ function findLastMessageIndex(messages, role, content) {
     }
 
     function addMessage(role, text, meta = null) {
+        const displayRole = typeof meta?.displayRole === 'string' ? meta.displayRole : role;
+        const shouldShowRetry = role === 'user' && displayRole === 'user' && !meta?.isPrefixMessage;
         const message = document.createElement('div');
-        message.className = `chat-msg ${role}`;
+        message.className = `chat-msg ${displayRole}`;
 
-        if (role === 'assistant' && text) {
+        if (displayRole === 'assistant' && text) {
             message.innerHTML = renderMarkdown(text);
             addCopyButtons(message);
         } else {
             message.textContent = text;
         }
 
-        if (role === 'user') {
+        if (shouldShowRetry) {
             const messageId = typeof meta?.messageId === 'string' ? meta.messageId : '';
             const retryButton = document.createElement('button');
             retryButton.className = 'msg-retry-btn';
@@ -105,11 +111,15 @@ function findLastMessageIndex(messages, role, content) {
                     historyIndex = findLastMessageIndex(state.conversationHistory, 'user', text);
                 }
 
+                const rawUserText = historyIndex !== -1
+                    ? (state.conversationHistory[historyIndex]?.content || text)
+                    : text;
+
                 if (historyIndex !== -1) {
                     state.conversationHistory.splice(historyIndex);
                 }
 
-                chatInput.value = text;
+                chatInput.value = rawUserText;
                 chatInput.style.height = 'auto';
                 chatInput.style.height = `${Math.min(chatInput.scrollHeight, 120)}px`;
                 chatInput.focus();

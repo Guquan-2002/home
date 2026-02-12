@@ -63,18 +63,103 @@ function truncateContentToTokenBudget(content, maxTokens) {
     return best.trim();
 }
 
+function formatPrefixTimestamp(timestamp) {
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `[${year}-${month}-${day} ${hours}:${minutes}:${seconds}]`;
+}
+
+function formatNameTag(name) {
+    const trimmed = (name || '').trim();
+    if (!trimmed) return '';
+
+    const hasAsciiBrackets = trimmed.startsWith('[') && trimmed.endsWith(']');
+    const hasCjkBrackets = trimmed.startsWith('【') && trimmed.endsWith('】');
+    const normalized = hasAsciiBrackets || hasCjkBrackets
+        ? trimmed.slice(1, -1).trim()
+        : trimmed;
+
+    if (!normalized) return '';
+    return `【${normalized}】`;
+}
+
+function buildNamePrefix(config) {
+    if (!config.prefixWithName) {
+        return '';
+    }
+
+    return formatNameTag(config.userName);
+}
+
+function buildTimestampPrefix(config, timestamp) {
+    if (!config.prefixWithTime) {
+        return '';
+    }
+
+    return formatPrefixTimestamp(timestamp);
+}
+
+function buildMessagePrefix(config) {
+    const tags = [];
+
+    const nameTag = buildNamePrefix(config);
+    if (nameTag) {
+        tags.push(nameTag);
+    }
+
+    return tags.join('\n');
+}
+
+function applyMessagePrefix(content, prefix) {
+    const text = typeof content === 'string' ? content : '';
+    if (!prefix) return text;
+    return `${prefix}\n${text}`;
+}
+
 /**
  * Builds metadata for persisted chat messages.
  */
-function buildMessageMeta(content, displayContent) {
+function buildMessageMeta(content, {
+    displayContent = '',
+    contextContent = '',
+    createdAt = Date.now(),
+    displayRole = '',
+    isPrefixMessage = false,
+    prefixType = ''
+} = {}) {
+    const contextForTokens = typeof contextContent === 'string' && contextContent
+        ? contextContent
+        : content;
+
     const meta = {
         messageId: createMessageId(),
-        createdAt: Date.now(),
-        tokenEstimate: estimateTokenCount(content) + 4
+        createdAt,
+        tokenEstimate: estimateTokenCount(contextForTokens) + 4
     };
 
-    if (displayContent && displayContent !== content) {
+    if (typeof displayContent === 'string' && displayContent && displayContent !== content) {
         meta.displayContent = displayContent;
+    }
+
+    if (typeof contextContent === 'string' && contextContent && contextContent !== content) {
+        meta.contextContent = contextContent;
+    }
+
+    if (displayRole === 'system' || displayRole === 'assistant' || displayRole === 'user') {
+        meta.displayRole = displayRole;
+    }
+
+    if (isPrefixMessage) {
+        meta.isPrefixMessage = true;
+    }
+
+    if (typeof prefixType === 'string' && prefixType) {
+        meta.prefixType = prefixType;
     }
 
     return meta;
@@ -91,42 +176,6 @@ function parseGeminiText(responseData) {
         .map((part) => (typeof part?.text === 'string' ? part.text : ''))
         .filter(Boolean)
         .join('');
-}
-
-/**
- * Collects unique web sources from Gemini grounding metadata.
- */
-function collectGroundingLinks(responseData) {
-    const chunks = responseData?.candidates?.[0]?.groundingMetadata?.groundingChunks;
-    if (!Array.isArray(chunks)) return [];
-
-    const unique = new Map();
-    chunks.forEach((chunk) => {
-        const web = chunk?.web;
-        const uri = web?.uri || web?.url;
-        if (!uri || unique.has(uri)) return;
-
-        unique.set(uri, {
-            title: web?.title || uri,
-            uri
-        });
-    });
-
-    return Array.from(unique.values());
-}
-
-/**
- * Converts grounding links into markdown list appended to assistant output.
- */
-function buildGroundingMarkdown(responseData) {
-    const links = collectGroundingLinks(responseData);
-    if (!links.length) return '';
-
-    const list = links
-        .map((link, index) => `${index + 1}. [${link.title}](${link.uri})`)
-        .join('\n');
-
-    return `${SOURCES_MARKDOWN_MARKER}${list}`;
 }
 
 /**
@@ -147,6 +196,10 @@ function stripGroundingMarkdown(text) {
  * Returns a context-safe raw message text from modern or legacy message shape.
  */
 function getContextMessageContent(message) {
+    if (typeof message?.meta?.contextContent === 'string' && message.meta.contextContent) {
+        return message.meta.contextContent;
+    }
+
     const rawContent = typeof message?.content === 'string' ? message.content : '';
     if (rawContent) {
         return rawContent;
@@ -564,7 +617,9 @@ export function createApiManager({
             const responseData = await requestGeminiWithFallbackKeys(config, requestBody);
 
             const assistantRawText = parseGeminiText(responseData).trim() || '(No response text)';
-            const assistantDisplayText = `${assistantRawText}${buildGroundingMarkdown(responseData)}`;
+            const assistantCreatedAt = Date.now();
+            const assistantContextText = assistantRawText;
+            const assistantDisplayText = assistantContextText;
 
             assistantMessage.classList.remove('typing');
             assistantMessage.innerHTML = renderMarkdown(assistantDisplayText);
@@ -574,7 +629,11 @@ export function createApiManager({
             state.conversationHistory.push({
                 role: 'assistant',
                 content: assistantRawText,
-                meta: buildMessageMeta(assistantRawText, assistantDisplayText)
+                meta: buildMessageMeta(assistantRawText, {
+                    displayContent: assistantDisplayText,
+                    contextContent: assistantContextText,
+                    createdAt: assistantCreatedAt
+                })
             });
             historyManager.saveCurrentSession();
         } catch (error) {
@@ -623,14 +682,41 @@ export function createApiManager({
             return;
         }
 
+        const userCreatedAt = Date.now();
+        const timestampPrefix = buildTimestampPrefix(config, userCreatedAt);
+        const userNamePrefix = buildMessagePrefix(config);
+        const userContextText = applyMessagePrefix(text, userNamePrefix);
+
+        if (timestampPrefix) {
+            const timestampMessage = {
+                role: 'user',
+                content: timestampPrefix,
+                meta: buildMessageMeta(timestampPrefix, {
+                    displayContent: timestampPrefix,
+                    contextContent: timestampPrefix,
+                    createdAt: userCreatedAt,
+                    displayRole: 'system',
+                    isPrefixMessage: true,
+                    prefixType: 'timestamp'
+                })
+            };
+
+            state.conversationHistory.push(timestampMessage);
+            ui.addMessage('user', timestampPrefix, timestampMessage.meta);
+        }
+
         const userMessage = {
             role: 'user',
             content: text,
-            meta: buildMessageMeta(text)
+            meta: buildMessageMeta(text, {
+                displayContent: userContextText,
+                contextContent: userContextText,
+                createdAt: userCreatedAt
+            })
         };
 
         state.conversationHistory.push(userMessage);
-        ui.addMessage('user', text, userMessage.meta);
+        ui.addMessage('user', userContextText, userMessage.meta);
         historyManager.saveCurrentSession();
 
         chatInput.value = '';

@@ -114,6 +114,22 @@
                         </select>
                         <small class="chat-settings-note">Enable grounding with Gemini Google Search.</small>
                     </label>
+
+                    <div class="chat-settings-section">
+                        <span class="chat-settings-section-title">Message Prefix</span>
+                        <label class="chat-settings-toggle" for="cfg-prefix-with-time">
+                            <input type="checkbox" id="cfg-prefix-with-time">
+                            <span>Add timestamp prefix</span>
+                        </label>
+                        <label class="chat-settings-toggle" for="cfg-prefix-with-name">
+                            <input type="checkbox" id="cfg-prefix-with-name">
+                            <span>Add user name prefix</span>
+                        </label>
+                        <label>User Name
+                            <input type="text" id="cfg-user-name" placeholder="e.g. [Zhangshan]" spellcheck="false">
+                        </label>
+                        <small class="chat-settings-note">Name prefix is applied only to user messages for display and context.</small>
+                    </div>
                 </div>
 
                 <div class="chat-settings-footer">

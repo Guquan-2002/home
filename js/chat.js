@@ -41,7 +41,10 @@ function getChatElements() {
         cfgModel: $('#cfg-model'),
         cfgPrompt: $('#cfg-system-prompt'),
         cfgThinkingBudget: $('#cfg-thinking-budget'),
-        cfgSearchMode: $('#cfg-search-mode')
+        cfgSearchMode: $('#cfg-search-mode'),
+        cfgPrefixWithTime: $('#cfg-prefix-with-time'),
+        cfgPrefixWithName: $('#cfg-prefix-with-name'),
+        cfgUserName: $('#cfg-user-name')
     };
 }
 
@@ -62,7 +65,10 @@ export function initChat() {
         cfgModel: elements.cfgModel,
         cfgPrompt: elements.cfgPrompt,
         cfgThinkingBudget: elements.cfgThinkingBudget,
-        cfgSearchMode: elements.cfgSearchMode
+        cfgSearchMode: elements.cfgSearchMode,
+        cfgPrefixWithTime: elements.cfgPrefixWithTime,
+        cfgPrefixWithName: elements.cfgPrefixWithName,
+        cfgUserName: elements.cfgUserName
     }, CHAT_STORAGE_KEY);
 
     const ui = createUiManager({

@@ -14,5 +14,8 @@ export const GEMINI_DEFAULTS = Object.freeze({
     apiUrl: 'https://generativelanguage.googleapis.com/v1beta',
     systemPrompt: 'You are a helpful assistant.',
     searchMode: '',
-    thinkingBudget: null
+    thinkingBudget: null,
+    prefixWithTime: false,
+    prefixWithName: false,
+    userName: 'User'
 });
