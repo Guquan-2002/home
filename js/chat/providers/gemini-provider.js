@@ -1,4 +1,5 @@
-﻿import { splitAssistantMessageByMarker } from '../core/message-model.js';
+import { splitAssistantMessageByMarker } from '../core/message-model.js';
+import { ASSISTANT_SEGMENT_MARKER, ASSISTANT_SENTENCE_MARKER } from '../constants.js';
 
 function shouldRetryStatus(statusCode) {
     return statusCode === 408 || statusCode === 429 || statusCode >= 500;
@@ -21,7 +22,39 @@ function parseGeminiText(responseData) {
         .join('');
 }
 
-function buildGeminiRequestBody(contextMessages, config) {
+function buildMarkerInstruction(enableMarkerSplit) {
+    if (!enableMarkerSplit) {
+        return '';
+    }
+
+    return [
+        'Formatting rules:',
+        `- When you need role-level segment boundaries, use ${ASSISTANT_SEGMENT_MARKER}.`,
+        `- After each completed sentence in normal prose, append ${ASSISTANT_SENTENCE_MARKER}.`,
+        '- Do not output marker tokens inside code blocks, tables, URLs, or inline code.'
+    ].join('\n');
+}
+
+function buildSystemInstruction(config, enableMarkerSplit) {
+    const basePrompt = typeof config?.systemPrompt === 'string'
+        ? config.systemPrompt.trim()
+        : '';
+    const markerInstruction = buildMarkerInstruction(enableMarkerSplit);
+
+    if (!basePrompt) {
+        return markerInstruction;
+    }
+
+    if (!markerInstruction) {
+        return basePrompt;
+    }
+
+    return `${basePrompt}\n\n${markerInstruction}`;
+}
+
+function buildGeminiRequestBody(contextMessages, config, {
+    enableMarkerSplit = false
+} = {}) {
     const body = {
         contents: contextMessages.map((message) => ({
             role: message.role === 'assistant' ? 'model' : 'user',
@@ -29,9 +62,10 @@ function buildGeminiRequestBody(contextMessages, config) {
         }))
     };
 
-    if (config.systemPrompt) {
+    const systemInstruction = buildSystemInstruction(config, enableMarkerSplit);
+    if (systemInstruction) {
         body.systemInstruction = {
-            parts: [{ text: config.systemPrompt }]
+            parts: [{ text: systemInstruction }]
         };
     }
 
@@ -176,7 +210,10 @@ export function createGeminiProvider({
                 throw new Error('At least one API key is required.');
             }
 
-            const requestBody = buildGeminiRequestBody(contextMessages, config);
+            const enableMarkerSplit = config?.enablePseudoStream === true;
+            const requestBody = buildGeminiRequestBody(contextMessages, config, {
+                enableMarkerSplit
+            });
             const hasBackupKey = apiKeys.length > 1;
             let lastError = null;
             let fallbackNoticeShown = false;
@@ -206,7 +243,9 @@ export function createGeminiProvider({
                     const assistantRawText = parseGeminiText(responseData);
 
                     return {
-                        segments: splitAssistantMessageByMarker(assistantRawText)
+                        segments: splitAssistantMessageByMarker(assistantRawText, {
+                            enableMarkerSplit
+                        })
                     };
                 } catch (error) {
                     if (error?.name === 'AbortError') {

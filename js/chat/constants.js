@@ -4,6 +4,7 @@ export const CHAT_DRAFTS_KEY = 'llm_chat_drafts_v1';
 export const CHAT_SCHEMA_VERSION = 2;
 export const SOURCES_MARKDOWN_MARKER = '\n\n---\n**Sources**\n';
 export const ASSISTANT_SEGMENT_MARKER = '<|CHANGE_ROLE|>';
+export const ASSISTANT_SENTENCE_MARKER = '<|END_SENTENCE|>';
 
 export const CHAT_LIMITS = Object.freeze({
     maxContextTokens: 200000,

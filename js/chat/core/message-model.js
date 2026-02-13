@@ -1,4 +1,8 @@
-﻿import { ASSISTANT_SEGMENT_MARKER, SOURCES_MARKDOWN_MARKER } from '../constants.js';
+import {
+    ASSISTANT_SEGMENT_MARKER,
+    ASSISTANT_SENTENCE_MARKER,
+    SOURCES_MARKDOWN_MARKER
+} from '../constants.js';
 
 export const DEFAULT_SESSION_TITLE = 'New chat';
 
@@ -43,10 +47,23 @@ export function stripSourcesSection(text) {
     return text.slice(0, sourcesIndex).trimEnd();
 }
 
-export function splitAssistantMessageByMarker(text) {
+export function splitAssistantMessageByMarker(text, {
+    enableMarkerSplit = false
+} = {}) {
     const rawText = typeof text === 'string' ? text : '';
+
+    if (!enableMarkerSplit) {
+        const fallbackText = rawText.trim();
+        if (fallbackText) {
+            return [fallbackText];
+        }
+
+        return ['(No response text)'];
+    }
+
     const segments = rawText
         .split(ASSISTANT_SEGMENT_MARKER)
+        .flatMap((segment) => segment.split(ASSISTANT_SENTENCE_MARKER))
         .map((segment) => segment.trim())
         .filter(Boolean);
 

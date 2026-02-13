@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 
 import { createGeminiProvider } from '../../js/chat/providers/gemini-provider.js';
+import { ASSISTANT_SEGMENT_MARKER, ASSISTANT_SENTENCE_MARKER } from '../../js/chat/constants.js';
 
 function createGeminiConfig(overrides = {}) {
     return {
@@ -13,6 +14,7 @@ function createGeminiConfig(overrides = {}) {
         systemPrompt: 'You are a helpful assistant.',
         searchMode: '',
         thinkingBudget: null,
+        enablePseudoStream: true,
         ...overrides
     };
 }
@@ -92,6 +94,59 @@ test('gemini provider retries transient fetch errors', async () => {
     assert.equal(retryNotices.length, 1);
     assert.equal(retryNotices[0].attempt, 1);
     assert.deepEqual(result.segments, ['retry ok']);
+});
+
+test('gemini provider injects marker rules and splits when pseudo stream is enabled', async () => {
+    let requestBody = null;
+    const responseText = `alpha${ASSISTANT_SENTENCE_MARKER}beta${ASSISTANT_SEGMENT_MARKER}gamma`;
+
+    const fetchMock = async (_url, options) => {
+        requestBody = JSON.parse(options.body);
+        return new Response(JSON.stringify({
+            candidates: [{ content: { parts: [{ text: responseText }] } }]
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    };
+
+    const provider = createGeminiProvider({ fetchImpl: fetchMock, maxRetries: 0 });
+    const result = await provider.generate({
+        config: createGeminiConfig({ enablePseudoStream: true, backupApiKey: '' }),
+        contextMessages,
+        signal: new AbortController().signal
+    });
+
+    assert.ok(requestBody?.systemInstruction?.parts?.[0]?.text.includes(ASSISTANT_SENTENCE_MARKER));
+    assert.deepEqual(result.segments, ['alpha', 'beta', 'gamma']);
+});
+
+test('gemini provider keeps marker text untouched when pseudo stream is disabled', async () => {
+    let requestBody = null;
+    const responseText = `alpha${ASSISTANT_SENTENCE_MARKER}beta${ASSISTANT_SEGMENT_MARKER}gamma`;
+
+    const fetchMock = async (_url, options) => {
+        requestBody = JSON.parse(options.body);
+        return new Response(JSON.stringify({
+            candidates: [{ content: { parts: [{ text: responseText }] } }]
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    };
+
+    const provider = createGeminiProvider({ fetchImpl: fetchMock, maxRetries: 0 });
+    const result = await provider.generate({
+        config: createGeminiConfig({ enablePseudoStream: false, backupApiKey: '' }),
+        contextMessages,
+        signal: new AbortController().signal
+    });
+
+    assert.equal(
+        requestBody?.systemInstruction?.parts?.[0]?.text.includes(ASSISTANT_SENTENCE_MARKER),
+        false
+    );
+    assert.deepEqual(result.segments, [responseText]);
 });
 
 test('gemini provider respects abort signal while waiting for retry delay', async () => {

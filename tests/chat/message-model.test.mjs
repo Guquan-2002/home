@@ -8,7 +8,11 @@ import {
     splitAssistantMessageByMarker,
     stripSourcesSection
 } from '../../js/chat/core/message-model.js';
-import { SOURCES_MARKDOWN_MARKER } from '../../js/chat/constants.js';
+import {
+    ASSISTANT_SEGMENT_MARKER,
+    ASSISTANT_SENTENCE_MARKER,
+    SOURCES_MARKDOWN_MARKER
+} from '../../js/chat/constants.js';
 
 test('createChatMessage creates id/turnId/meta for user message', () => {
     const turnId = createTurnId();
@@ -68,8 +72,24 @@ test('normalizeChatMessage keeps legacy meta.messageId and turn fallback', () =>
     assert.equal(normalized.meta.turnId, 'turn_legacy');
 });
 
-test('splitAssistantMessageByMarker returns trimmed segments', () => {
-    const segments = splitAssistantMessageByMarker('one\n<|CHANGE_ROLE|>\n two ');
+test('splitAssistantMessageByMarker keeps full text when marker split is disabled', () => {
+    const segments = splitAssistantMessageByMarker(`one ${ASSISTANT_SEGMENT_MARKER} two`);
+    assert.deepEqual(segments, [`one ${ASSISTANT_SEGMENT_MARKER} two`]);
+});
+
+test('splitAssistantMessageByMarker splits by role and sentence markers when enabled', () => {
+    const segments = splitAssistantMessageByMarker(
+        `one${ASSISTANT_SENTENCE_MARKER}two${ASSISTANT_SEGMENT_MARKER}three`,
+        { enableMarkerSplit: true }
+    );
+    assert.deepEqual(segments, ['one', 'two', 'three']);
+});
+
+test('splitAssistantMessageByMarker returns trimmed segments with role marker when enabled', () => {
+    const segments = splitAssistantMessageByMarker(
+        `one\n${ASSISTANT_SEGMENT_MARKER}\n two `,
+        { enableMarkerSplit: true }
+    );
     assert.deepEqual(segments, ['one', 'two']);
 });
 
