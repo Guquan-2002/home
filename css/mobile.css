@@ -25,8 +25,7 @@
     }
 
     .chat-msg.assistant {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
+        overflow-wrap: anywhere;
     }
 
     /* 确保长URL和代码不会溢出 */

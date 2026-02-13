@@ -588,13 +588,13 @@
     line-height: 1.5;
     word-break: break-word;
     overflow-wrap: break-word;
+    overflow-wrap: anywhere;
     word-wrap: break-word;
     hyphens: auto;
     text-shadow: none;
     animation: msg-appear 0.25s ease-out;
-    /* 防止长文本溢出 */
-    overflow: hidden;
-    overflow-x: auto;
+    /* 让消息气泡高度自适应，避免长文本被裁切 */
+    overflow: visible;
 }
 
 .chat-msg.user {
