@@ -16,6 +16,39 @@
     select {
         font-size: 16px !important;
     }
+
+    /* 移动端消息溢出保护 */
+    .chat-msg {
+        max-width: 95%;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+    }
+
+    .chat-msg.assistant {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* 确保长URL和代码不会溢出 */
+    .chat-msg.assistant a,
+    .chat-msg.assistant code:not(pre code) {
+        word-break: break-all;
+        overflow-wrap: anywhere;
+    }
+
+    /* 代码块在移动端的优化 */
+    .chat-msg.assistant pre {
+        max-width: calc(100vw - 60px);
+        overflow-x: auto;
+    }
+
+    /* 表格在移动端的优化 */
+    .chat-msg.assistant table {
+        font-size: 0.75em;
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
 }
 
 /* 触摸设备优化 */

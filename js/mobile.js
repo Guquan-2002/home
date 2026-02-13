@@ -37,18 +37,16 @@ export function initMobileEnhancements() {
             }, 300);
         });
 
-        // 输入框失去焦点时
-        chatInput.addEventListener('blur', () => {
-            // 恢复视口
-            setTimeout(() => {
-                window.scrollTo(0, 0);
-            }, 100);
-        });
+        // 输入框失去焦点时不强制滚动，避免页面位置跳变
     }
 
     // 3. 防止双击缩放
     let lastTouchEnd = 0;
     document.addEventListener('touchend', (event) => {
+        if (!(event.target instanceof Element)) return;
+        if (!event.target.closest('#chat-panel, #chat-toggle')) return;
+        if (event.target.closest('a, button, input, textarea, select, label')) return;
+
         const now = Date.now();
         if (now - lastTouchEnd <= 300) {
             event.preventDefault();
@@ -57,36 +55,55 @@ export function initMobileEnhancements() {
     }, { passive: false });
 
     // 4. 聊天面板打开时禁止背景滚动
-    const chatToggle = document.getElementById('chat-toggle');
-    const chatCloseBtn = document.getElementById('chat-close-btn');
+    let lockedScrollY = 0;
+    let isBodyScrollLocked = false;
 
-    function toggleBodyScroll(disable) {
-        if (disable) {
-            document.body.style.overflow = 'hidden';
-            document.body.style.position = 'fixed';
-            document.body.style.width = '100%';
+    function lockBodyScroll() {
+        if (isBodyScrollLocked) return;
+
+        lockedScrollY = window.scrollY || window.pageYOffset || 0;
+        document.body.style.overflow = 'hidden';
+        document.body.style.position = 'fixed';
+        document.body.style.top = `-${lockedScrollY}px`;
+        document.body.style.left = '0';
+        document.body.style.right = '0';
+        document.body.style.width = '100%';
+        isBodyScrollLocked = true;
+    }
+
+    function unlockBodyScroll() {
+        if (!isBodyScrollLocked) return;
+
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.left = '';
+        document.body.style.right = '';
+        document.body.style.width = '';
+        window.scrollTo(0, lockedScrollY);
+        isBodyScrollLocked = false;
+    }
+
+    function syncBodyScrollWithChatPanel() {
+        if (!chatPanel) return;
+
+        const isChatVisible = !chatPanel.classList.contains('chat-hidden');
+        if (isChatVisible) {
+            lockBodyScroll();
         } else {
-            document.body.style.overflow = '';
-            document.body.style.position = '';
-            document.body.style.width = '';
+            unlockBodyScroll();
         }
     }
 
-    if (chatToggle && chatPanel) {
-        chatToggle.addEventListener('click', () => {
-            const isHidden = chatPanel.classList.contains('chat-hidden');
-            if (!isHidden) {
-                toggleBodyScroll(false);
-            } else {
-                toggleBodyScroll(true);
+    if (chatPanel) {
+        const chatPanelObserver = new MutationObserver((mutationList) => {
+            if (mutationList.some((mutation) => mutation.type === 'attributes' && mutation.attributeName === 'class')) {
+                syncBodyScrollWithChatPanel();
             }
         });
-    }
 
-    if (chatCloseBtn) {
-        chatCloseBtn.addEventListener('click', () => {
-            toggleBodyScroll(false);
-        });
+        chatPanelObserver.observe(chatPanel, { attributes: true, attributeFilter: ['class'] });
+        syncBodyScrollWithChatPanel();
     }
 
     // 5. 优化触摸滚动
@@ -102,13 +119,7 @@ export function initMobileEnhancements() {
         }
     });
 
-    // 6. 处理输入框自动调整高度
-    if (chatInput) {
-        chatInput.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = Math.min(this.scrollHeight, 100) + 'px';
-        });
-    }
+    // 6. 输入框高度由 chat.js 统一管理，避免重复监听导致跳动
 
     // 7. 添加触觉反馈（如果支持）
     function addHapticFeedback(element) {

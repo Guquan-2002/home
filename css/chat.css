@@ -587,8 +587,14 @@
     font-size: 0.9rem;
     line-height: 1.5;
     word-break: break-word;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    hyphens: auto;
     text-shadow: none;
     animation: msg-appear 0.25s ease-out;
+    /* 防止长文本溢出 */
+    overflow: hidden;
+    overflow-x: auto;
 }
 
 .chat-msg.user {
@@ -603,6 +609,8 @@
     align-self: flex-start;
     background: rgba(255, 255, 255, 0.1);
     border-bottom-left-radius: 4px;
+    /* 确保内容不会溢出 */
+    overflow-wrap: anywhere;
 }
 
 .chat-msg.system {
@@ -697,6 +705,8 @@
 /* Assistant markdown */
 .chat-msg.assistant p {
     margin: 0.4em 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .chat-msg.assistant p:first-child {
@@ -711,10 +721,12 @@
 .chat-msg.assistant ol {
     margin: 0.4em 0;
     padding-left: 1.5em;
+    word-wrap: break-word;
 }
 
 .chat-msg.assistant li {
     margin: 0.2em 0;
+    word-wrap: break-word;
 }
 
 .chat-msg.assistant blockquote {
@@ -722,23 +734,31 @@
     border-left: 3px solid rgba(255, 255, 255, 0.3);
     padding: 0.2em 0.8em;
     opacity: 0.85;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .chat-msg.assistant table {
     margin: 0.4em 0;
     border-collapse: collapse;
     font-size: 0.85em;
+    max-width: 100%;
+    overflow-x: auto;
+    display: block;
 }
 
 .chat-msg.assistant th,
 .chat-msg.assistant td {
     border: 1px solid rgba(255, 255, 255, 0.2);
     padding: 4px 8px;
+    word-break: break-word;
 }
 
 .chat-msg.assistant a {
     color: #7eb8ff;
     text-decoration: underline;
+    word-break: break-all;
+    overflow-wrap: anywhere;
 }
 
 .chat-msg.assistant h1,
@@ -750,6 +770,7 @@
     margin: 0.5em 0 0.3em;
     font-size: 0.95em;
     font-weight: 600;
+    word-wrap: break-word;
 }
 
 .chat-msg.assistant hr {
@@ -765,7 +786,11 @@
     border-radius: 8px;
     padding: 12px;
     overflow-x: auto;
+    overflow-y: hidden;
     background: rgba(0, 0, 0, 0.35);
+    max-width: 100%;
+    /* 移动端优化滚动 */
+    -webkit-overflow-scrolling: touch;
 }
 
 .chat-msg.assistant pre code {
@@ -774,6 +799,10 @@
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
     font-size: 0.82rem;
     line-height: 1.45;
+    white-space: pre;
+    word-wrap: normal;
+    overflow-wrap: normal;
+    display: block;
 }
 
 .chat-msg.assistant code:not(pre code) {
@@ -782,6 +811,8 @@
     background: rgba(255, 255, 255, 0.1);
     font-size: 0.85em;
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    word-break: break-all;
+    overflow-wrap: anywhere;
 }
 
 .code-copy-btn {

@@ -4,7 +4,7 @@
  * Returns whether an HTTP status code should trigger retry logic.
  */
 function shouldRetryStatus(statusCode) {
-    return statusCode === 401 || statusCode === 403 || statusCode === 408 || statusCode === 429 || statusCode >= 500;
+    return statusCode === 408 || statusCode === 429 || statusCode >= 500;
 }
 
 /**
@@ -386,6 +386,47 @@ async function readErrorDetails(response) {
     }
 }
 
+function createAbortError() {
+    if (typeof DOMException === 'function') {
+        return new DOMException('The operation was aborted.', 'AbortError');
+    }
+
+    const error = new Error('The operation was aborted.');
+    error.name = 'AbortError';
+    return error;
+}
+
+function waitForRetryDelay(delayMs, signal) {
+    if (!Number.isFinite(delayMs) || delayMs <= 0) {
+        return Promise.resolve();
+    }
+
+    if (signal?.aborted) {
+        return Promise.reject(createAbortError());
+    }
+
+    return new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+            if (signal) {
+                signal.removeEventListener('abort', onAbort);
+            }
+            resolve();
+        }, delayMs);
+
+        const onAbort = () => {
+            clearTimeout(timeoutId);
+            if (signal) {
+                signal.removeEventListener('abort', onAbort);
+            }
+            reject(createAbortError());
+        };
+
+        if (signal) {
+            signal.addEventListener('abort', onAbort, { once: true });
+        }
+    });
+}
+
 const CONTEXT_DEBUG_STORAGE_KEY = 'llm_chat_context_debug';
 const CONTEXT_MAX_MESSAGES_STORAGE_KEY = 'llm_chat_context_max_messages';
 const CONTEXT_DEBUG_PREVIEW_CHARS = 80;
@@ -505,7 +546,7 @@ export function createApiManager({
                 if (shouldRetryStatus(response.status) && attempt < maxRetries) {
                     const delayMs = Math.min(1000 * (2 ** attempt), 8000);
                     ui.showRetryNotice(attempt + 1, maxRetries, delayMs);
-                    await new Promise((resolve) => setTimeout(resolve, delayMs));
+                    await waitForRetryDelay(delayMs, options?.signal);
                     continue;
                 }
 
@@ -523,7 +564,7 @@ export function createApiManager({
 
                 const delayMs = Math.min(1000 * (2 ** attempt), 8000);
                 ui.showRetryNotice(attempt + 1, maxRetries, delayMs);
-                await new Promise((resolve) => setTimeout(resolve, delayMs));
+                await waitForRetryDelay(delayMs, options?.signal);
             }
         }
 
@@ -609,6 +650,7 @@ export function createApiManager({
      * 4) render display text with optional Sources section
      */
     async function generateAssistantResponse(config) {
+        const requestSessionId = state.currentSessionId;
         const effectiveMaxContextMessages = resolveContextMaxMessages(maxContextMessages);
         const contextWindow = buildContextWindow(
             state.conversationHistory,
@@ -641,6 +683,11 @@ export function createApiManager({
             const assistantSegments = splitAssistantMessageByMarker(assistantRawText);
             const assistantCreatedAt = Date.now();
 
+            if (state.currentSessionId !== requestSessionId) {
+                assistantMessage.remove();
+                return;
+            }
+
             assistantMessage.remove();
 
             assistantSegments.forEach((segment, index) => {
@@ -659,6 +706,11 @@ export function createApiManager({
 
             historyManager.saveCurrentSession();
         } catch (error) {
+            if (state.currentSessionId !== requestSessionId) {
+                assistantMessage.remove();
+                return;
+            }
+
             if (error.name === 'AbortError') {
                 if (state.abortReason === 'connect_timeout') {
                     assistantMessage.className = 'chat-msg error';

@@ -1,10 +1,21 @@
-﻿export function createUiManager({
+export function createUiManager({
     state,
     elements,
     renderMarkdown,
-    maxRenderedMessages
+    maxRenderedMessages,
+    onConversationHistoryMutated = null
 }) {
-    const { messagesEl, chatInput, sendBtn, stopBtn } = elements;
+    const {
+        messagesEl,
+        chatInput,
+        sendBtn,
+        stopBtn,
+        sessionActionButtons = []
+    } = elements;
+
+    let handleConversationHistoryMutated = typeof onConversationHistoryMutated === 'function'
+        ? onConversationHistoryMutated
+        : () => {};
 
     function scrollToBottom(smooth = true) {
         messagesEl.scrollTo({
@@ -46,20 +57,20 @@
         }
     }
 
-function findLastMessageIndex(messages, role, content) {
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-        const message = messages[index];
-        const displayContent = typeof message?.meta?.displayContent === 'string'
-            ? message.meta.displayContent
-            : '';
+    function findLastMessageIndex(messages, role, content) {
+        for (let index = messages.length - 1; index >= 0; index -= 1) {
+            const message = messages[index];
+            const displayContent = typeof message?.meta?.displayContent === 'string'
+                ? message.meta.displayContent
+                : '';
 
-        if (message.role === role && (message.content === content || displayContent === content)) {
-            return index;
+            if (message.role === role && (message.content === content || displayContent === content)) {
+                return index;
+            }
         }
-    }
 
-    return -1;
-}
+        return -1;
+    }
 
     function findHistoryIndexByMessageId(messages, role, messageId) {
         for (let index = 0; index < messages.length; index += 1) {
@@ -117,6 +128,7 @@ function findLastMessageIndex(messages, role, content) {
 
                 if (historyIndex !== -1) {
                     state.conversationHistory.splice(historyIndex);
+                    handleConversationHistoryMutated();
                 }
 
                 chatInput.value = rawUserText;
@@ -139,17 +151,27 @@ function findLastMessageIndex(messages, role, content) {
         sendBtn.disabled = !enabled;
     }
 
+    function setSessionActionsEnabled(enabled) {
+        sessionActionButtons.forEach((button) => {
+            if (button && 'disabled' in button) {
+                button.disabled = !enabled;
+            }
+        });
+    }
+
     function setStreamingUI(isStreaming) {
         if (isStreaming) {
             stopBtn.style.display = '';
             sendBtn.style.display = 'none';
             setInputEnabled(false);
+            setSessionActionsEnabled(false);
             return;
         }
 
         stopBtn.style.display = 'none';
         sendBtn.style.display = '';
         setInputEnabled(true);
+        setSessionActionsEnabled(true);
     }
 
     function addSystemNotice(text, removeAfterMs = 0) {
@@ -175,12 +197,19 @@ function findLastMessageIndex(messages, role, content) {
         addSystemNotice('Primary API key failed. Switching to backup key...', 3000);
     }
 
+    function setConversationHistoryMutatedHandler(handler) {
+        handleConversationHistoryMutated = typeof handler === 'function'
+            ? handler
+            : () => {};
+    }
+
     return {
         addCopyButtons,
         addMessage,
         addSystemNotice,
         scrollToBottom,
         setStreamingUI,
+        setConversationHistoryMutatedHandler,
         showRetryNotice,
         showBackupKeyNotice
     };

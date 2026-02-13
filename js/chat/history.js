@@ -138,13 +138,38 @@ function cloneMessages(messages) {
     return messages.map(cloneMessage);
 }
 
+function createSessionId() {
+    if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+        return `session_${globalThis.crypto.randomUUID()}`;
+    }
+
+    return `session_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function createHistoryManager({
     state,
     elements,
     addMessage,
-    historyKey
+    historyKey,
+    isSessionOperationBlocked = null,
+    onBlockedSessionOperation = null
 }) {
     const { messagesEl, historyDiv, historyList } = elements;
+    const isOperationBlocked = typeof isSessionOperationBlocked === 'function'
+        ? isSessionOperationBlocked
+        : () => false;
+    const notifyBlockedOperation = typeof onBlockedSessionOperation === 'function'
+        ? onBlockedSessionOperation
+        : () => {};
+
+    function ensureSessionOperationAllowed() {
+        if (!isOperationBlocked()) {
+            return true;
+        }
+
+        notifyBlockedOperation();
+        return false;
+    }
 
     function loadChatHistory() {
         try {
@@ -176,8 +201,12 @@ export function createHistoryManager({
         }
     }
 
-    function createNewSession() {
-        const sessionId = Date.now().toString();
+    function createNewSession({ skipBusyCheck = false } = {}) {
+        if (!skipBusyCheck && !ensureSessionOperationAllowed()) {
+            return null;
+        }
+
+        const sessionId = createSessionId();
         state.currentSessionId = sessionId;
         state.conversationHistory = [];
 
@@ -209,8 +238,10 @@ export function createHistoryManager({
     }
 
     function loadSession(sessionId) {
+        if (!ensureSessionOperationAllowed()) return false;
+
         const session = state.chatSessions[sessionId];
-        if (!session) return;
+        if (!session) return false;
 
         const normalizedSession = normalizeSession(session);
         state.chatSessions[sessionId] = normalizedSession;
@@ -222,20 +253,25 @@ export function createHistoryManager({
         state.conversationHistory.forEach((message) => {
             addMessage(message.role, getMessageDisplayContent(message), message.meta);
         });
+
+        return true;
     }
 
     function deleteSession(sessionId) {
+        if (!ensureSessionOperationAllowed()) return;
+
         delete state.chatSessions[sessionId];
         saveChatHistory();
 
         if (state.currentSessionId === sessionId) {
-            createNewSession();
+            createNewSession({ skipBusyCheck: true });
         }
 
         renderHistoryList();
     }
 
     function clearAllSessions() {
+        if (!ensureSessionOperationAllowed()) return;
         if (Object.keys(state.chatSessions).length === 0) return;
 
         const confirmed = confirm('Delete all chat sessions? This action cannot be undone.');
@@ -248,6 +284,8 @@ export function createHistoryManager({
     }
 
     function editSessionTitle(sessionId, nextTitle) {
+        if (!ensureSessionOperationAllowed()) return;
+
         const session = state.chatSessions[sessionId];
         if (!session) return;
 
@@ -274,7 +312,8 @@ export function createHistoryManager({
             title.className = 'history-item-title';
             title.textContent = session.title;
             title.addEventListener('click', () => {
-                loadSession(sessionId);
+                const loaded = loadSession(sessionId);
+                if (!loaded) return;
                 historyDiv.classList.add('chat-history-hidden');
                 renderHistoryList();
             });

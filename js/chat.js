@@ -77,11 +77,21 @@ export function initChat() {
             messagesEl: elements.messagesEl,
             chatInput: elements.chatInput,
             sendBtn: elements.sendBtn,
-            stopBtn: elements.stopBtn
+            stopBtn: elements.stopBtn,
+            sessionActionButtons: [
+                elements.historyBtn,
+                elements.clearBtn,
+                elements.newSessionBtn,
+                elements.clearAllBtn
+            ]
         },
         renderMarkdown,
         maxRenderedMessages: CHAT_LIMITS.maxRenderedMessages
     });
+
+    const notifySessionBusy = () => {
+        ui.addSystemNotice('Please stop generation before switching or editing chat sessions.', 3000);
+    };
 
     const historyManager = createHistoryManager({
         state,
@@ -91,8 +101,11 @@ export function initChat() {
             historyList: elements.historyList
         },
         addMessage: ui.addMessage,
-        historyKey: CHAT_HISTORY_KEY
+        historyKey: CHAT_HISTORY_KEY,
+        isSessionOperationBlocked: () => state.isStreaming,
+        onBlockedSessionOperation: notifySessionBusy
     });
+    ui.setConversationHistoryMutatedHandler(historyManager.saveCurrentSession);
 
     const apiManager = createApiManager({
         state,
@@ -156,6 +169,11 @@ export function initChat() {
     elements.settingsCloseBtn.addEventListener('click', closeSettings);
 
     elements.historyBtn.addEventListener('click', () => {
+        if (state.isStreaming) {
+            notifySessionBusy();
+            return;
+        }
+
         elements.historyDiv.classList.toggle('chat-history-hidden');
         closeSettings();
 
@@ -165,20 +183,29 @@ export function initChat() {
     });
 
     elements.newSessionBtn.addEventListener('click', () => {
+        if (state.isStreaming) {
+            notifySessionBusy();
+            return;
+        }
+
         historyManager.createNewSession();
         elements.historyDiv.classList.add('chat-history-hidden');
         historyManager.renderHistoryList();
     });
 
     elements.clearAllBtn.addEventListener('click', () => {
+        if (state.isStreaming) {
+            notifySessionBusy();
+            return;
+        }
+
         historyManager.clearAllSessions();
     });
 
     elements.clearBtn.addEventListener('click', () => {
-        if (state.isStreaming && state.abortController) {
-            state.abortReason = 'user';
-            state.abortController.abort();
-            state.isStreaming = false;
+        if (state.isStreaming) {
+            notifySessionBusy();
+            return;
         }
 
         historyManager.createNewSession();
