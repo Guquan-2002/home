@@ -6,15 +6,9 @@ import { createUiManager } from './chat/ui.js';
 import { createHistoryManager } from './chat/history.js';
 import { createApiManager } from './chat/api.js';
 import { initCustomSelect } from './chat/custom-select.js';
-
-const state = {
-    conversationHistory: [],
-    currentSessionId: null,
-    chatSessions: {},
-    isStreaming: false,
-    abortController: null,
-    abortReason: ''
-};
+import { createSessionStore } from './chat/state/session-store.js';
+import { getMessageDisplayContent } from './chat/core/message-model.js';
+import { createGeminiProvider } from './chat/providers/gemini-provider.js';
 
 function getChatElements() {
     return {
@@ -57,6 +51,10 @@ function setupInputAutosize(chatInput) {
 
 export function initChat() {
     const elements = getChatElements();
+    const store = createSessionStore({
+        storage: globalThis.localStorage,
+        historyKey: CHAT_HISTORY_KEY
+    });
 
     const configManager = createConfigManager({
         cfgUrl: elements.cfgUrl,
@@ -71,8 +69,13 @@ export function initChat() {
         cfgUserName: elements.cfgUserName
     }, CHAT_STORAGE_KEY);
 
+    let historyManager = null;
+
+    const renderActiveConversation = () => {
+        ui.renderConversation(store.getActiveMessages(), getMessageDisplayContent);
+    };
+
     const ui = createUiManager({
-        state,
         elements: {
             messagesEl: elements.messagesEl,
             chatInput: elements.chatInput,
@@ -86,43 +89,68 @@ export function initChat() {
             ]
         },
         renderMarkdown,
-        maxRenderedMessages: CHAT_LIMITS.maxRenderedMessages
+        maxRenderedMessages: CHAT_LIMITS.maxRenderedMessages,
+        isRetryBlocked: () => store.isStreaming(),
+        onRetryRequested: ({ turnId, content }) => {
+            if (store.isStreaming()) {
+                return;
+            }
+
+            const rollbackResult = store.rollbackToTurn(turnId);
+            if (!rollbackResult) {
+                return;
+            }
+
+            renderActiveConversation();
+            elements.chatInput.value = rollbackResult.retryContent || content;
+            elements.chatInput.style.height = 'auto';
+            elements.chatInput.style.height = `${Math.min(elements.chatInput.scrollHeight, 120)}px`;
+            elements.chatInput.focus();
+
+            historyManager?.renderHistoryList();
+        }
     });
 
     const notifySessionBusy = () => {
         ui.addSystemNotice('Please stop generation before switching or editing chat sessions.', 3000);
     };
 
-    const historyManager = createHistoryManager({
-        state,
+    historyManager = createHistoryManager({
+        store,
         elements: {
-            messagesEl: elements.messagesEl,
             historyDiv: elements.historyDiv,
             historyList: elements.historyList
         },
-        addMessage: ui.addMessage,
-        historyKey: CHAT_HISTORY_KEY,
-        isSessionOperationBlocked: () => state.isStreaming,
+        onSessionActivated: () => {
+            renderActiveConversation();
+            historyManager.renderHistoryList();
+        },
+        isSessionOperationBlocked: () => store.isStreaming(),
         onBlockedSessionOperation: notifySessionBusy
     });
-    ui.setConversationHistoryMutatedHandler(historyManager.saveCurrentSession);
+
+    const provider = createGeminiProvider({
+        maxRetries: CHAT_LIMITS.maxRetries
+    });
 
     const apiManager = createApiManager({
-        state,
+        store,
         elements: {
             chatInput: elements.chatInput,
             settingsDiv: elements.settingsDiv
         },
         ui,
         configManager,
-        historyManager,
+        provider,
         constants: {
             connectTimeoutMs: CHAT_LIMITS.connectTimeoutMs,
-            maxRetries: CHAT_LIMITS.maxRetries,
             maxContextTokens: CHAT_LIMITS.maxContextTokens,
             maxContextMessages: CHAT_LIMITS.maxContextMessages
         },
-        escapeHtml
+        escapeHtml,
+        onConversationUpdated: () => {
+            historyManager.renderHistoryList();
+        }
     });
 
     const openSettings = () => {
@@ -169,7 +197,7 @@ export function initChat() {
     elements.settingsCloseBtn.addEventListener('click', closeSettings);
 
     elements.historyBtn.addEventListener('click', () => {
-        if (state.isStreaming) {
+        if (store.isStreaming()) {
             notifySessionBusy();
             return;
         }
@@ -183,7 +211,7 @@ export function initChat() {
     });
 
     elements.newSessionBtn.addEventListener('click', () => {
-        if (state.isStreaming) {
+        if (store.isStreaming()) {
             notifySessionBusy();
             return;
         }
@@ -194,7 +222,7 @@ export function initChat() {
     });
 
     elements.clearAllBtn.addEventListener('click', () => {
-        if (state.isStreaming) {
+        if (store.isStreaming()) {
             notifySessionBusy();
             return;
         }
@@ -203,7 +231,7 @@ export function initChat() {
     });
 
     elements.clearBtn.addEventListener('click', () => {
-        if (state.isStreaming) {
+        if (store.isStreaming()) {
             notifySessionBusy();
             return;
         }
@@ -214,9 +242,7 @@ export function initChat() {
     });
 
     elements.stopBtn.addEventListener('click', () => {
-        if (!state.abortController) return;
-        state.abortReason = 'user';
-        state.abortController.abort();
+        apiManager.stopGeneration();
     });
 
     elements.sendBtn.addEventListener('click', apiManager.sendMessage);
@@ -235,11 +261,8 @@ export function initChat() {
 
     configManager.loadConfig();
     initCustomSelect(elements.cfgSearchMode);
-    historyManager.loadChatHistory();
 
-    if (!state.currentSessionId || !state.chatSessions[state.currentSessionId]) {
-        historyManager.createNewSession();
-    } else {
-        historyManager.loadSession(state.currentSessionId);
-    }
+    store.initialize();
+    renderActiveConversation();
+    historyManager.renderHistoryList();
 }

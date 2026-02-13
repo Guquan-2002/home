@@ -1,15 +1,14 @@
-/**
+﻿/**
  * 移动端交互增强
  */
 
 export function initMobileEnhancements() {
-    // 检测是否为移动设备
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
     if (!isMobile && !isTouch) return;
 
-    // 1. 处理iOS Safari视口高度问题
+    // 1. 修复 iOS Safari 视口高度问题
     function setViewportHeight() {
         const vh = window.innerHeight * 0.01;
         document.documentElement.style.setProperty('--vh', `${vh}px`);
@@ -27,20 +26,16 @@ export function initMobileEnhancements() {
     const chatMessages = document.getElementById('chat-messages');
 
     if (chatInput && chatPanel) {
-        // 输入框获得焦点时
         chatInput.addEventListener('focus', () => {
-            // 延迟滚动，等待键盘弹出
             setTimeout(() => {
                 if (chatMessages) {
                     chatMessages.scrollTop = chatMessages.scrollHeight;
                 }
             }, 300);
         });
-
-        // 输入框失去焦点时不强制滚动，避免页面位置跳变
     }
 
-    // 3. 防止双击缩放
+    // 3. 防止聊天区域双击缩放
     let lastTouchEnd = 0;
     document.addEventListener('touchend', (event) => {
         if (!(event.target instanceof Element)) return;
@@ -51,10 +46,11 @@ export function initMobileEnhancements() {
         if (now - lastTouchEnd <= 300) {
             event.preventDefault();
         }
+
         lastTouchEnd = now;
     }, { passive: false });
 
-    // 4. 聊天面板打开时禁止背景滚动
+    // 4. 聊天面板打开时锁定页面滚动
     let lockedScrollY = 0;
     let isBodyScrollLocked = false;
 
@@ -113,7 +109,7 @@ export function initMobileEnhancements() {
         document.querySelector('.chat-settings-content')
     ];
 
-    scrollableElements.forEach(el => {
+    scrollableElements.forEach((el) => {
         if (el) {
             el.style.webkitOverflowScrolling = 'touch';
         }
@@ -121,18 +117,17 @@ export function initMobileEnhancements() {
 
     // 6. 输入框高度由 chat.js 统一管理，避免重复监听导致跳动
 
-    // 7. 添加触觉反馈（如果支持）
+    // 7. 增加触觉反馈（设备支持时）
     function addHapticFeedback(element) {
         if (!element) return;
 
         element.addEventListener('click', () => {
             if (navigator.vibrate) {
-                navigator.vibrate(10); // 轻微震动10ms
+                navigator.vibrate(10);
             }
         });
     }
 
-    // 为重要按钮添加触觉反馈
     const hapticButtons = [
         document.getElementById('chat-send-btn'),
         document.getElementById('chat-stop-btn'),
@@ -142,13 +137,13 @@ export function initMobileEnhancements() {
 
     hapticButtons.forEach(addHapticFeedback);
 
-    // 8. 优化代码块的横向滚动
+    // 8. 优化代码块横向滚动
     const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             mutation.addedNodes.forEach((node) => {
                 if (node.nodeType === 1 && node.classList?.contains('chat-msg')) {
                     const preElements = node.querySelectorAll('pre');
-                    preElements.forEach(pre => {
+                    preElements.forEach((pre) => {
                         pre.style.webkitOverflowScrolling = 'touch';
                     });
                 }
@@ -160,15 +155,12 @@ export function initMobileEnhancements() {
         observer.observe(chatMessages, { childList: true });
     }
 
-    // 9. 处理横屏/竖屏切换
+    // 9. 横竖屏切换处理
     function handleOrientationChange() {
         const isLandscape = window.innerWidth > window.innerHeight;
         document.body.classList.toggle('landscape', isLandscape);
-
-        // 重新计算视口高度
         setViewportHeight();
 
-        // 如果聊天面板打开，滚动到底部
         if (chatMessages && !chatPanel?.classList.contains('chat-hidden')) {
             setTimeout(() => {
                 chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -179,25 +171,23 @@ export function initMobileEnhancements() {
     window.addEventListener('orientationchange', handleOrientationChange);
     window.addEventListener('resize', handleOrientationChange);
 
-    // 10. 优化搜索输入框在移动端的行为
+    // 10. 搜索框移动端体验优化
     const searchInput = document.getElementById('search-input');
     if (searchInput) {
-        // 防止iOS Safari在输入时自动缩放
-        searchInput.addEventListener('focus', (e) => {
-            e.target.style.fontSize = '16px';
+        searchInput.addEventListener('focus', (event) => {
+            event.target.style.fontSize = '16px';
         });
 
-        // 移动端回车键提交
-        searchInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                searchInput.blur(); // 收起键盘
+        searchInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                searchInput.blur();
                 searchInput.form?.submit();
             }
         });
     }
 
-    // 11. 添加移动端标识类
+    // 11. 注入移动端标识类
     document.body.classList.add('mobile-device');
     if (isTouch) {
         document.body.classList.add('touch-device');

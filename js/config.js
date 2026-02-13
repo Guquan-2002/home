@@ -1,19 +1,11 @@
-// Config constants
+﻿import { safeGetJson, safeSetJson } from './shared/safe-storage.js';
+
 const RUNTIME_CONFIG_STORAGE_KEY = 'startpage_config';
 const WEATHER_SETUP_PROMPT_FLAG_KEY = 'weather_setup_prompted_v1';
 
 function readRuntimeConfig() {
     const globalConfig = globalThis.__STARTPAGE_CONFIG__ || {};
-    let localConfig = {};
-
-    try {
-        if (typeof localStorage !== 'undefined') {
-            localConfig = JSON.parse(localStorage.getItem(RUNTIME_CONFIG_STORAGE_KEY) || '{}');
-        }
-    } catch {
-        // Ignore invalid local config.
-    }
-
+    const localConfig = safeGetJson(RUNTIME_CONFIG_STORAGE_KEY, {}, globalThis.localStorage);
     return { ...localConfig, ...globalConfig };
 }
 
@@ -22,14 +14,8 @@ function asTrimmedString(value) {
 }
 
 export function saveRuntimeConfig(partialConfig) {
-    if (typeof localStorage === 'undefined') return;
-
-    try {
-        const existing = JSON.parse(localStorage.getItem(RUNTIME_CONFIG_STORAGE_KEY) || '{}');
-        localStorage.setItem(RUNTIME_CONFIG_STORAGE_KEY, JSON.stringify({ ...existing, ...partialConfig }));
-    } catch {
-        localStorage.setItem(RUNTIME_CONFIG_STORAGE_KEY, JSON.stringify({ ...partialConfig }));
-    }
+    const existingConfig = safeGetJson(RUNTIME_CONFIG_STORAGE_KEY, {}, globalThis.localStorage);
+    safeSetJson(RUNTIME_CONFIG_STORAGE_KEY, { ...existingConfig, ...partialConfig }, globalThis.localStorage);
 }
 
 const runtimeConfig = readRuntimeConfig();
@@ -89,13 +75,45 @@ export const WEATHER_API_URLS = {
 };
 
 export const WEATHER_ICON_MAP = {
-    '0':'fa-sun','1':'fa-moon','2':'fa-sun','3':'fa-moon','4':'fa-cloud','5':'fa-cloud-sun','6':'fa-cloud-sun',
-    '7':'fa-cloud','8':'fa-cloud','9':'fa-cloud','10':'fa-cloud-showers-heavy','11':'fa-cloud-bolt','12':'fa-cloud-bolt',
-    '13':'fa-cloud-rain','14':'fa-cloud-rain','15':'fa-cloud-showers-heavy','16':'fa-wind','17':'fa-wind','18':'fa-wind',
-    '19':'fa-snowflake','20':'fa-cloud-meatball','21':'fa-snowflake','22':'fa-snowflake','23':'fa-snowflake',
-    '24':'fa-snowflake','25':'fa-snowflake','26':'fa-smog','27':'fa-smog','28':'fa-smog','29':'fa-smog','30':'fa-smog',
-    '31':'fa-smog','32':'fa-wind','33':'fa-wind','34':'fa-wind','35':'fa-wind','36':'fa-wind','37':'fa-temperature-low',
-    '38':'fa-temperature-high'
+    '0': 'fa-sun',
+    '1': 'fa-moon',
+    '2': 'fa-sun',
+    '3': 'fa-moon',
+    '4': 'fa-cloud',
+    '5': 'fa-cloud-sun',
+    '6': 'fa-cloud-sun',
+    '7': 'fa-cloud',
+    '8': 'fa-cloud',
+    '9': 'fa-cloud',
+    '10': 'fa-cloud-showers-heavy',
+    '11': 'fa-cloud-bolt',
+    '12': 'fa-cloud-bolt',
+    '13': 'fa-cloud-rain',
+    '14': 'fa-cloud-rain',
+    '15': 'fa-cloud-showers-heavy',
+    '16': 'fa-wind',
+    '17': 'fa-wind',
+    '18': 'fa-wind',
+    '19': 'fa-snowflake',
+    '20': 'fa-cloud-meatball',
+    '21': 'fa-snowflake',
+    '22': 'fa-snowflake',
+    '23': 'fa-snowflake',
+    '24': 'fa-snowflake',
+    '25': 'fa-snowflake',
+    '26': 'fa-smog',
+    '27': 'fa-smog',
+    '28': 'fa-smog',
+    '29': 'fa-smog',
+    '30': 'fa-smog',
+    '31': 'fa-smog',
+    '32': 'fa-wind',
+    '33': 'fa-wind',
+    '34': 'fa-wind',
+    '35': 'fa-wind',
+    '36': 'fa-wind',
+    '37': 'fa-temperature-low',
+    '38': 'fa-temperature-high'
 };
 
 export const NETWORK_ENDPOINTS = {
@@ -104,7 +122,22 @@ export const NETWORK_ENDPOINTS = {
 };
 
 export const SEARCH_ENGINES = {
-    google: { action: 'https://www.google.com/search', placeholder: '\u4f7f\u7528 Google \u641c\u7d22', statusClass: 'google-ok', statusText: '\u56fd\u9645' },
-    bing:   { action: 'https://cn.bing.com/search',    placeholder: '\u4f7f\u7528 Bing \u641c\u7d22',   statusClass: 'bing-ok',   statusText: '\u56fd\u5185' },
-    offline:{ action: '#',                              placeholder: '\u7f51\u7edc\u8fde\u63a5\u4e0d\u53ef\u7528',     statusClass: 'net-fail',  statusText: '\u65ad\u5f00' }
+    google: {
+        action: 'https://www.google.com/search',
+        placeholder: '使用 Google 搜索',
+        statusClass: 'google-ok',
+        statusText: '国际'
+    },
+    bing: {
+        action: 'https://cn.bing.com/search',
+        placeholder: '使用 Bing 搜索',
+        statusClass: 'bing-ok',
+        statusText: '国内'
+    },
+    offline: {
+        action: '#',
+        placeholder: '网络连接不可用',
+        statusClass: 'net-fail',
+        statusText: '断开'
+    }
 };

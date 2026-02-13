@@ -1,4 +1,4 @@
-// DOM 元素缓存和工具函数
+﻿// DOM 元素缓存和工具函数
 export const $ = (sel) => document.querySelector(sel);
 
 export const elements = {

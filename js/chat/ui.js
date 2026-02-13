@@ -1,9 +1,9 @@
-export function createUiManager({
-    state,
+﻿export function createUiManager({
     elements,
     renderMarkdown,
     maxRenderedMessages,
-    onConversationHistoryMutated = null
+    onRetryRequested = null,
+    isRetryBlocked = null
 }) {
     const {
         messagesEl,
@@ -13,9 +13,12 @@ export function createUiManager({
         sessionActionButtons = []
     } = elements;
 
-    let handleConversationHistoryMutated = typeof onConversationHistoryMutated === 'function'
-        ? onConversationHistoryMutated
+    const handleRetryRequested = typeof onRetryRequested === 'function'
+        ? onRetryRequested
         : () => {};
+    const retryBlocked = typeof isRetryBlocked === 'function'
+        ? isRetryBlocked
+        : () => false;
 
     function scrollToBottom(smooth = true) {
         messagesEl.scrollTo({
@@ -57,93 +60,82 @@ export function createUiManager({
         }
     }
 
-    function findLastMessageIndex(messages, role, content) {
-        for (let index = messages.length - 1; index >= 0; index -= 1) {
-            const message = messages[index];
-            const displayContent = typeof message?.meta?.displayContent === 'string'
-                ? message.meta.displayContent
-                : '';
-
-            if (message.role === role && (message.content === content || displayContent === content)) {
-                return index;
-            }
-        }
-
-        return -1;
+    function clearMessages() {
+        messagesEl.innerHTML = '';
     }
 
-    function findHistoryIndexByMessageId(messages, role, messageId) {
-        for (let index = 0; index < messages.length; index += 1) {
-            const message = messages[index];
-            if (message.role === role && message?.meta?.messageId === messageId) {
-                return index;
-            }
-        }
-
-        return -1;
-    }
-
-    function addMessage(role, text, meta = null) {
+    function addMessage(role, text, meta = null, identifiers = {}) {
         const displayRole = typeof meta?.displayRole === 'string' ? meta.displayRole : role;
         const shouldShowRetry = role === 'user' && displayRole === 'user' && !meta?.isPrefixMessage;
-        const message = document.createElement('div');
-        message.className = `chat-msg ${displayRole}`;
 
-        if (displayRole === 'assistant' && text) {
-            message.innerHTML = renderMarkdown(text);
-            addCopyButtons(message);
-        } else {
-            message.textContent = text;
+        const messageElement = document.createElement('div');
+        messageElement.className = `chat-msg ${displayRole}`;
+
+        const messageId = typeof identifiers?.messageId === 'string' ? identifiers.messageId : '';
+        const turnId = typeof identifiers?.turnId === 'string' ? identifiers.turnId : '';
+
+        if (messageId) {
+            messageElement.dataset.messageId = messageId;
         }
 
-        if (shouldShowRetry) {
-            const messageId = typeof meta?.messageId === 'string' ? meta.messageId : '';
+        if (turnId) {
+            messageElement.dataset.turnId = turnId;
+        }
+
+        if (displayRole === 'assistant' && text) {
+            messageElement.innerHTML = renderMarkdown(text);
+            addCopyButtons(messageElement);
+        } else {
+            messageElement.textContent = text;
+        }
+
+        if (shouldShowRetry && turnId) {
             const retryButton = document.createElement('button');
             retryButton.className = 'msg-retry-btn';
             retryButton.innerHTML = '<i class="fas fa-redo"></i>';
             retryButton.title = 'Retry from this message';
 
             retryButton.addEventListener('click', () => {
-                if (state.isStreaming) return;
-
-                const domMessageIndex = Array.from(messagesEl.children).indexOf(message);
-                if (domMessageIndex < 0) return;
-
-                while (messagesEl.children.length > domMessageIndex) {
-                    messagesEl.removeChild(messagesEl.lastChild);
+                if (retryBlocked()) {
+                    return;
                 }
 
-                let historyIndex = -1;
-                if (messageId) {
-                    historyIndex = findHistoryIndexByMessageId(state.conversationHistory, 'user', messageId);
-                }
-
-                if (historyIndex === -1) {
-                    historyIndex = findLastMessageIndex(state.conversationHistory, 'user', text);
-                }
-
-                const rawUserText = historyIndex !== -1
-                    ? (state.conversationHistory[historyIndex]?.content || text)
-                    : text;
-
-                if (historyIndex !== -1) {
-                    state.conversationHistory.splice(historyIndex);
-                    handleConversationHistoryMutated();
-                }
-
-                chatInput.value = rawUserText;
-                chatInput.style.height = 'auto';
-                chatInput.style.height = `${Math.min(chatInput.scrollHeight, 120)}px`;
-                chatInput.focus();
+                handleRetryRequested({
+                    turnId,
+                    messageId,
+                    content: text
+                });
             });
 
-            message.appendChild(retryButton);
+            messageElement.appendChild(retryButton);
         }
 
-        messagesEl.appendChild(message);
+        messagesEl.appendChild(messageElement);
         pruneOldMessages();
         scrollToBottom(false);
-        return message;
+        return messageElement;
+    }
+
+    function addLoadingMessage() {
+        const loadingMessage = addMessage('assistant', '');
+        loadingMessage.innerHTML = '<span class="chat-loading"><span></span><span></span><span></span></span>';
+        loadingMessage.classList.add('typing');
+        return loadingMessage;
+    }
+
+    function renderConversation(messages, resolveDisplayContent) {
+        clearMessages();
+
+        messages.forEach((message) => {
+            const displayContent = typeof resolveDisplayContent === 'function'
+                ? resolveDisplayContent(message)
+                : message.content;
+
+            addMessage(message.role, displayContent, message.meta, {
+                messageId: message.id,
+                turnId: message.turnId
+            });
+        });
     }
 
     function setInputEnabled(enabled) {
@@ -159,8 +151,8 @@ export function createUiManager({
         });
     }
 
-    function setStreamingUI(isStreaming) {
-        if (isStreaming) {
+    function setStreamingUI(streaming) {
+        if (streaming) {
             stopBtn.style.display = '';
             sendBtn.style.display = 'none';
             setInputEnabled(false);
@@ -197,19 +189,15 @@ export function createUiManager({
         addSystemNotice('Primary API key failed. Switching to backup key...', 3000);
     }
 
-    function setConversationHistoryMutatedHandler(handler) {
-        handleConversationHistoryMutated = typeof handler === 'function'
-            ? handler
-            : () => {};
-    }
-
     return {
         addCopyButtons,
+        addLoadingMessage,
         addMessage,
         addSystemNotice,
+        clearMessages,
+        renderConversation,
         scrollToBottom,
         setStreamingUI,
-        setConversationHistoryMutatedHandler,
         showRetryNotice,
         showBackupKeyNotice
     };

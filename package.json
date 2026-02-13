@@ -1,0 +1,8 @@
+﻿{
+  "name": "start-page",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/chat/*.test.mjs"
+  }
+}

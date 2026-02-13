@@ -1,4 +1,5 @@
 ﻿import { GEMINI_DEFAULTS } from './constants.js';
+import { safeGetJson, safeSetJson } from '../shared/safe-storage.js';
 
 function parsePositiveInteger(rawValue) {
     const parsed = Number.parseInt(rawValue, 10);
@@ -28,6 +29,7 @@ function normalizeNameField(rawValue, fallback) {
 
 function normalizeStoredConfig(raw) {
     return {
+        provider: GEMINI_DEFAULTS.provider,
         apiUrl: typeof raw.apiUrl === 'string' && raw.apiUrl.trim() ? raw.apiUrl.trim() : GEMINI_DEFAULTS.apiUrl,
         apiKey: typeof raw.apiKey === 'string' ? raw.apiKey.trim() : '',
         backupApiKey: typeof raw.backupApiKey === 'string' ? raw.backupApiKey.trim() : '',
@@ -73,6 +75,7 @@ export function createConfigManager(elements, storageKey) {
 
     function readConfigFromForm() {
         return normalizeStoredConfig({
+            provider: GEMINI_DEFAULTS.provider,
             apiUrl: cfgUrl.value,
             apiKey: cfgKey.value,
             backupApiKey: cfgBackupKey.value,
@@ -87,17 +90,14 @@ export function createConfigManager(elements, storageKey) {
     }
 
     function loadConfig() {
-        try {
-            const rawConfig = JSON.parse(localStorage.getItem(storageKey) || '{}');
-            applyConfigToForm(normalizeStoredConfig(rawConfig));
-        } catch {
-            applyConfigToForm(normalizeStoredConfig({}));
-        }
+        applyConfigToForm(normalizeStoredConfig(
+            safeGetJson(storageKey, {}, globalThis.localStorage)
+        ));
     }
 
     function saveConfig() {
         const config = readConfigFromForm();
-        localStorage.setItem(storageKey, JSON.stringify(config));
+        safeSetJson(storageKey, config, globalThis.localStorage);
     }
 
     function getConfig() {

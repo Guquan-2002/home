@@ -1,13 +1,13 @@
-import {
+﻿import {
     WEATHER_API_URLS,
     WEATHER_ICON_MAP,
     CONFIG,
     shouldPromptWeatherSetup,
     markWeatherSetupPrompted,
-    saveRuntimeConfig
+    saveRuntimeConfig,
+    NETWORK_ENDPOINTS
 } from './config.js';
 import { elements, checkConnectivity } from './utils.js';
-import { NETWORK_ENDPOINTS } from './config.js';
 
 function asTrimmedString(value) {
     return typeof value === 'string' ? value.trim() : '';
@@ -39,22 +39,24 @@ export async function updateWeather(url) {
     try {
         const response = await fetch(url);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
         const data = await response.json();
-        if (!data.results?.[0]) throw new Error('\u5929\u6c14\u6570\u636e\u683c\u5f0f\u9519\u8bef');
+        if (!data.results?.[0]) throw new Error('天气数据格式错误');
 
         const { location, now } = data.results[0];
         elements.weatherIconEl.className = `fas ${WEATHER_ICON_MAP[now.code] || 'fa-question-circle'}`;
-        elements.weatherDetailsEl.textContent = `${location.name} \u00b7 ${now.text} ${now.temperature}\u00b0C`;
+        elements.weatherDetailsEl.textContent = `${location.name} · ${now.text} ${now.temperature}°C`;
     } catch (error) {
-        console.error('\u5929\u6c14\u4fe1\u606f\u83b7\u53d6\u5931\u8d25:', error);
+        console.error('天气信息获取失败:', error);
         elements.weatherIconEl.className = 'fas fa-exclamation-triangle';
-        elements.weatherDetailsEl.textContent = '\u5929\u6c14\u4fe1\u606f\u52a0\u8f7d\u5931\u8d25';
+        elements.weatherDetailsEl.textContent = '天气信息加载失败';
     }
 }
 
 export async function runWeatherCheck(isGoogleAvailable) {
     elements.weatherIconEl.className = 'fas fa-spinner fa-spin';
-    elements.weatherDetailsEl.textContent = '\u6b63\u5728\u52a0\u8f7d\u5929\u6c14...';
+    elements.weatherDetailsEl.textContent = '正在加载天气...';
+
     const apiUrl = isGoogleAvailable ? WEATHER_API_URLS.googleAvailable : WEATHER_API_URLS.default;
     await updateWeather(apiUrl);
 }
