@@ -68,6 +68,11 @@
     font-size: 7rem;
     font-weight: 600;
     letter-spacing: 2px;
+    text-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.3),
+        0 0 20px rgba(255, 255, 255, 0.15),
+        0 0 40px rgba(255, 255, 255, 0.08);
+    transition: text-shadow 0.3s ease;
 }
 
 #date {
@@ -85,17 +90,28 @@
     font-weight: 400;
     padding: 10px 20px;
     background-color: var(--component-bg);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 20px;
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
     margin-bottom: 2.5rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
 }
 
 #weather-container:visited,
-#weather-container:hover,
 #weather-container:active {
     color: var(--text-color);
     text-decoration: none;
+}
+
+#weather-container:hover {
+    color: var(--text-color);
+    text-decoration: none;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 #search-container {
@@ -114,29 +130,41 @@
     left: 20px;
     color: var(--placeholder-color);
     font-size: 1.2rem;
+    transition: color 0.3s ease;
+    pointer-events: none;
 }
 
 #search-input {
     width: 100%;
     padding: 18px 20px 18px 50px;
-    border: none;
+    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 30px;
     background-color: var(--component-bg);
     color: var(--text-color);
     font-size: 1.2rem;
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
-    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    transition: all 0.3s ease;
 }
 
 #search-input::placeholder {
     color: var(--placeholder-color);
 }
 
+#search-input:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
 #search-input:focus {
     outline: none;
     background-color: var(--component-bg-focus);
-    box-shadow: var(--component-shadow-focus);
+    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: var(--component-shadow-focus), 0 0 0 3px rgba(255, 255, 255, 0.1);
+}
+
+#search-input:focus ~ .search-icon {
+    color: var(--text-color);
 }
 
 #network-status {

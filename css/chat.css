@@ -32,11 +32,13 @@
     -webkit-backdrop-filter: blur(10px);
     transition: background 0.3s, transform 0.3s, opacity 0.3s;
     text-shadow: var(--text-shadow);
+    animation: chat-toggle-pulse 3s ease-in-out infinite;
 }
 
 #chat-toggle:hover {
     background: var(--component-bg-focus);
     transform: translateY(-50%) scale(1.1);
+    animation: none;
 }
 
 /* Chat panel */
@@ -53,13 +55,17 @@
     border-left: 1px solid var(--chat-border);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s;
+    will-change: transform;
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                visibility 0s linear 0s;
 }
 
 #chat-panel.chat-hidden {
-    transform: translateX(100%);
-    opacity: 0;
+    transform: translate3d(100%, 0, 0);
+    visibility: hidden;
     pointer-events: none;
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                visibility 0s linear 0.35s;
 }
 
 #chat-header {
@@ -68,6 +74,7 @@
     justify-content: space-between;
     padding: 14px 16px;
     border-bottom: 1px solid var(--chat-border);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, transparent 100%);
     flex-shrink: 0;
 }
 
@@ -107,10 +114,15 @@
     background: linear-gradient(180deg, var(--chat-overlay-bg-start) 0%, var(--chat-overlay-bg-end) 100%);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
+    opacity: 1;
+    transform: scale(1);
+    transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
 #chat-settings.chat-settings-hidden {
-    display: none;
+    opacity: 0;
+    transform: scale(0.98);
+    pointer-events: none;
 }
 
 .chat-settings-overlay {
@@ -430,10 +442,22 @@
     padding: 12px 16px;
     border-bottom: 1px solid var(--chat-border);
     flex-shrink: 0;
+    opacity: 1;
+    transform: scaleY(1);
+    transform-origin: top;
+    will-change: transform, opacity;
+    transition: opacity 0.2s ease, transform 0.2s ease, max-height 0.2s ease, padding 0.2s ease;
 }
 
 #chat-history.chat-history-hidden {
-    display: none;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+    opacity: 0;
+    transform: scaleY(0);
+    overflow: hidden;
+    pointer-events: none;
 }
 
 #chat-history-header {
@@ -561,13 +585,23 @@
 
 #chat-history::-webkit-scrollbar,
 #chat-messages::-webkit-scrollbar {
-    width: 4px;
+    width: 5px;
+}
+
+#chat-history::-webkit-scrollbar-track,
+#chat-messages::-webkit-scrollbar-track {
+    background: transparent;
 }
 
 #chat-history::-webkit-scrollbar-thumb,
 #chat-messages::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+}
+
+#chat-history::-webkit-scrollbar-thumb:hover,
+#chat-messages::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
 }
 
 /* Message list */
@@ -578,6 +612,28 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+
+/* Empty state */
+#chat-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    flex: 1;
+    opacity: 0.35;
+    pointer-events: none;
+    user-select: none;
+}
+
+#chat-empty-state i {
+    font-size: 2.2rem;
+}
+
+#chat-empty-state span {
+    font-size: 0.88rem;
+    letter-spacing: 0.02em;
 }
 
 .chat-msg {
@@ -603,12 +659,14 @@
     white-space: pre-wrap;
     background: rgba(100, 140, 255, 0.35);
     border-bottom-right-radius: 4px;
+    box-shadow: 0 2px 8px rgba(100, 140, 255, 0.15);
 }
 
 .chat-msg.assistant {
     align-self: flex-start;
     background: rgba(255, 255, 255, 0.1);
     border-bottom-left-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     /* 确保内容不会溢出 */
     overflow-wrap: anywhere;
 }
@@ -756,7 +814,8 @@
 
 #chat-input:focus {
     outline: none;
-    border-color: rgba(255, 255, 255, 0.35);
+    border-color: rgba(100, 140, 255, 0.5);
+    box-shadow: 0 0 0 2px rgba(100, 140, 255, 0.15), 0 0 12px rgba(100, 140, 255, 0.1);
 }
 
 #chat-input::placeholder {
@@ -801,6 +860,12 @@
 #chat-send-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+}
+
+#chat-send-btn.has-text {
+    background: var(--chat-accent-strong);
+    box-shadow: 0 0 12px rgba(100, 140, 255, 0.4);
+    transition: background 0.2s, box-shadow 0.3s;
 }
 
 #chat-stop-btn {

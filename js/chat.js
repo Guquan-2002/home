@@ -373,6 +373,7 @@ export function initChat() {
         onUserMessageAccepted: ({ sessionId }) => {
             clearTimeout(draftSaveTimerId);
             draftManager.removeDraft(sessionId);
+            elements.sendBtn.classList.remove('has-text');
         }
     });
 
@@ -395,16 +396,21 @@ export function initChat() {
     setupInputAutosize(elements.chatInput);
 
     elements.chatInput.addEventListener('input', scheduleDraftSave);
+    elements.chatInput.addEventListener('input', () => {
+        elements.sendBtn.classList.toggle('has-text', elements.chatInput.value.trim().length > 0);
+    });
     elements.chatInput.addEventListener('blur', saveDraftImmediately);
     globalThis.addEventListener('beforeunload', saveDraftImmediately);
 
     elements.toggleBtn.addEventListener('click', () => {
         elements.panel.classList.remove('chat-hidden');
-        if (elements.settingsDiv.classList.contains('chat-settings-hidden')) {
-            elements.chatInput.focus();
-        } else {
-            elements.cfgUrl.focus();
-        }
+        requestAnimationFrame(() => {
+            if (elements.settingsDiv.classList.contains('chat-settings-hidden')) {
+                elements.chatInput.focus();
+            } else {
+                elements.cfgUrl.focus();
+            }
+        });
     });
 
     elements.closeBtn.addEventListener('click', () => {

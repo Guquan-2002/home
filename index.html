@@ -33,9 +33,9 @@
 
         <div id="search-container" role="search">
             <form id="search-form" action="#" method="get" target="_blank">
-                <i class="search-icon fas fa-search" aria-hidden="true"></i>
                 <label for="search-input" class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Search</label>
-                <input type="text" id="search-input" name="q" placeholder="Search the web..." autocomplete="off" autofocus>
+                <input type="text" id="search-input" name="q" placeholder="使用 Google 搜索" autocomplete="off" autofocus>
+                <i class="search-icon fas fa-search" aria-hidden="true"></i>
             </form>
         </div>
     </main>
@@ -167,7 +167,12 @@
             </div>
         </div>
 
-        <div id="chat-messages"></div>
+        <div id="chat-messages">
+            <div id="chat-empty-state">
+                <i class="fas fa-comments"></i>
+                <span>Start a conversation</span>
+            </div>
+        </div>
 
         <div id="chat-input-area">
             <input type="file" id="chat-image-input" accept="image/*" multiple hidden>

@@ -101,10 +101,30 @@ export function createUiManager({
     }
 
     /**
+     * 显示空状态提示
+     */
+    function showEmptyState() {
+        if (messagesEl.querySelector('#chat-empty-state')) return;
+        const el = document.createElement('div');
+        el.id = 'chat-empty-state';
+        el.innerHTML = '<i class="fas fa-comments"></i><span>Start a conversation</span>';
+        messagesEl.appendChild(el);
+    }
+
+    /**
+     * 隐藏空状态提示
+     */
+    function hideEmptyState() {
+        const el = messagesEl.querySelector('#chat-empty-state');
+        if (el) el.remove();
+    }
+
+    /**
      * 清空所有消息
      */
     function clearMessages() {
         messagesEl.innerHTML = '';
+        showEmptyState();
     }
 
     /**
@@ -137,6 +157,7 @@ export function createUiManager({
      * 追加消息元素到列表
      */
     function appendMessageElement(messageElement) {
+        hideEmptyState();
         messagesEl.appendChild(messageElement);
         pruneOldMessages();
         scrollToBottom(false);
