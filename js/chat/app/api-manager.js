@@ -1,17 +1,17 @@
 ﻿/**
- * 鑱婂ぉ API 绠＄悊鍣?
+ * 聊天 API 管理器
  *
- * 鑱岃矗锛?
- * - 鍗忚皟鍙戦€?娴佸紡/涓娴佺▼锛圲I銆佺姸鎬併€丳rovider 涔嬮棿锛?
- * - 澶勭悊鐢ㄦ埛娑堟伅杈撳叆锛堟枃鏈€佸浘鐗囬檮浠讹級
- * - 鏋勫缓涓婁笅鏂囩獥鍙ｅ苟璋冪敤 AI Provider
- * - 绠＄悊娴佸紡鍝嶅簲鍜屼吉娴佸紡娓叉煋
- * - 澶勭悊閿欒銆侀噸璇曘€佽秴鏃躲€佸鐢ㄥ瘑閽ュ垏鎹?
- * - 鎻愪緵閲嶈瘯鍔熻兘锛堝洖婊氬埌鎸囧畾杞锛?
- * - 璋冭瘯涓婁笅鏂囩獥鍙ｏ紙鍙€夛級
+ * 职责：
+ * - 协调发送、流式输出与中止流程（UI、状态、Provider 之间）
+ * - 处理用户消息输入（文本、图片附件）
+ * - 构建上下文窗口并调用 AI Provider
+ * - 管理流式响应和伪流式渲染
+ * - 处理错误、重试、超时、备用密钥切换
+ * - 提供重试能力（回填到指定轮次）
+ * - 输出上下文窗口调试信息（可选）
  *
- * 渚濊禆锛歝ontext-window, message-model, marker-stream-splitter, prefix, pseudo-stream, provider-interface
- * 琚緷璧栵細chat.js
+ * 依赖：context-window, message-model, marker-stream-splitter, prefix, pseudo-stream, provider-interface
+ * 被依赖：chat.js
  */
 import { buildContextPreview, buildLocalMessageEnvelope, normalizeMaxContextMessages } from '../core/context-window.js';
 import { createChatMessage, createTurnId, getMessageDisplayContent } from '../core/message-model.js';
@@ -21,17 +21,17 @@ import { ASSISTANT_SEGMENT_MARKER, ASSISTANT_SENTENCE_MARKER } from '../constant
 import { runPseudoStream } from '../core/pseudo-stream.js';
 import { assertProvider } from '../providers/provider-interface.js';
 
-// 涓婁笅鏂囪皟璇曠浉鍏冲父閲?
+// 上下文调试相关常量
 const CONTEXT_DEBUG_STORAGE_KEY = 'llm_chat_context_debug';
 const CONTEXT_MAX_MESSAGES_STORAGE_KEY = 'llm_chat_context_max_messages';
 const CONTEXT_DEBUG_PREVIEW_CHARS = 80;
 
 /**
- * 妫€鏌ユ槸鍚﹀惎鐢ㄤ笂涓嬫枃璋冭瘯
+ * 检查是否启用上下文调试
  *
- * 璋冭瘯妯″紡鍙€氳繃浠ヤ笅鏂瑰紡鍚敤锛?
- * 1. 鍏ㄥ眬鍙橀噺锛歸indow.__CHAT_CONTEXT_DEBUG__ = true
- * 2. localStorage锛歭lm_chat_context_debug = '1'
+ * 调试模式可通过以下方式启用：
+ * 1. 全局变量：window.__CHAT_CONTEXT_DEBUG__ = true
+ * 2. localStorage：llm_chat_context_debug = '1'
  */
 function isContextDebugEnabled() {
     if (globalThis.__CHAT_CONTEXT_DEBUG__ === true) {
@@ -50,12 +50,12 @@ function isContextDebugEnabled() {
 }
 
 /**
- * 瑙ｆ瀽涓婁笅鏂囨渶澶ф秷鎭暟
+ * 解析上下文最大消息数
  *
- * 浼樺厛绾э細
- * 1. 鍏ㄥ眬鍙橀噺锛歸indow.__CHAT_CONTEXT_MAX_MESSAGES__
- * 2. localStorage锛歭lm_chat_context_max_messages
- * 3. 榛樿鍊?
+ * 优先级：
+ * 1. 全局变量：window.__CHAT_CONTEXT_MAX_MESSAGES__
+ * 2. localStorage：llm_chat_context_max_messages
+ * 3. 默认值
  */
 function resolveContextMaxMessages(defaultValue) {
     const globalOverride = normalizeMaxContextMessages(globalThis.__CHAT_CONTEXT_MAX_MESSAGES__);
@@ -78,14 +78,14 @@ function resolveContextMaxMessages(defaultValue) {
 }
 
 /**
- * 杈撳嚭涓婁笅鏂囩獥鍙ｈ皟璇曚俊鎭?
+ * 输出上下文窗口调试信息
  *
- * 鍖呭惈锛?
- * - Provider 鍜屾ā鍨嬩俊鎭?
- * - 娑堟伅鏁伴噺缁熻锛堟€绘暟銆佺敤鎴锋秷鎭€佸姪鎵嬫秷鎭級
- * - Token 鏁伴噺鍜岄绠?
- * - 鏄惁琚鍓?
- * - 娑堟伅棰勮
+ * 包含：
+ * - Provider 和模型信息
+ * - 消息数量统计（总数、用户消息、助手消息）
+ * - Token 数量和预算
+ * - 是否被裁剪
+ * - 消息预览
  */
 function logContextWindowDebug(contextWindow, config) {
     if (!isContextDebugEnabled()) {

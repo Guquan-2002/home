@@ -1,252 +1,190 @@
-﻿# Start Page
+# Start Page
 
-一个基于原生 ES Modules 的浏览器起始页，集成动态主题、天气、网络感知搜索和多 Provider Chat（Gemini / OpenAI Chat Completions / OpenAI Responses / Anthropic），支持文本+图片输入。
-English version: [README.en.md](README.en.md)
+一个现代化的浏览器起始页，集成动态主题、天气、智能搜索和多模型 AI 聊天功能。
 
-## 功能亮点
+[English](README.en.md)
 
-- 时间驱动动态背景（晨间 / 白天 / 傍晚 / 夜间）
-- 实时时钟与日期展示
-- 天气组件（支持 API Key 或代理模式）
-- 网络状态检测 + 搜索引擎自动切换（Google / Bing / 离线）
+## ✨ 核心特性
+
+### 🎨 动态主题
+- 时间驱动的背景切换（晨间/白天/傍晚/夜间）
 - 星空背景特效
-- 多 Provider 聊天（Gemini / OpenAI Chat Completions / OpenAI Responses / Anthropic）
-- 聊天会话管理（新建 / 切换 / 重命名 / 删除 / 清空）
-- 按 `turnId` 回退重试（从指定用户轮次重新生成）
-- 聊天上下文窗口控制（消息数 + Token 预算，支持多模态消息）
-- 伪流式输出（可开关，前端分段渲染）
-- 按会话草稿自动保存（可开关，切换/刷新可恢复）
-- 失败气泡一键“回填输入框”（仅回填，不自动发送）
-- Provider 独立配置档案（切换 Provider 自动回填 URL/Key/Model/Thinking/Search；OpenAI Reasoning Effort 可保存）
-- 对话框图片输入（点击上传 / 粘贴图片，可与文本混发）
-- Node 内置测试覆盖 chat 核心逻辑
+- 实时时钟与日期显示
 
-## 技术栈
+### 🌤️ 智能组件
+- 实时天气信息（支持 API Key 或代理模式）
+- 网络状态检测与搜索引擎自动切换（Google/Bing/离线）
 
-- HTML + CSS（无构建步骤）
-- Vanilla JavaScript（ES Modules）
-- Fetch API
-- `localStorage` 持久化
-- Marked + highlight.js（聊天 Markdown/代码高亮）
+### 💬 AI 聊天
+- **多模型支持**：Gemini / OpenAI / Anthropic
+- **多模态输入**：文本 + 图片混合输入
+- **会话管理**：新建/切换/重命名/删除/清空
+- **智能上下文**：自动控制消息数与 Token 预算
+- **高级功能**：
+  - 按轮次回退重试
+  - 伪流式输出
+  - 草稿自动保存
+  - 失败消息一键回填
+  - Provider 独立配置档案
 
-## 项目结构
+## 🚀 快速开始
 
-```text
-home/
-|-- index.html
-|-- package.json
-|-- css/
-|   |-- variables.css
-|   |-- base.css
-|   |-- animations.css
-|   |-- components.css
-|   |-- chat.css
-|   `-- mobile.css
-|-- js/
-|   |-- main.js
-|   |-- config.js
-|   |-- utils.js
-|   |-- time.js
-|   |-- theme.js
-|   |-- weather.js
-|   |-- network.js
-|   |-- starfield.js
-|   |-- mobile.js
-|   |-- chat.js
-|   |-- shared/
-|   |   `-- safe-storage.js
-|   `-- chat/
-|       |-- constants.js
-|       |-- app/
-|       |   |-- api-manager.js
-|       |   `-- config-manager.js
-|       |-- ui/
-|       |   |-- ui-manager.js
-|       |   |-- markdown.js
-|       |   `-- custom-select.js
-|       |-- session/
-|       |   |-- history-manager.js
-|       |   `-- session-store.js
-|       |-- core/
-|       |   |-- message-model.js
-|       |   |-- local-message.js
-|       |   |-- marker-stream-splitter.js
-|       |   |-- context-window.js
-|       |   |-- prefix.js
-|       |   `-- pseudo-stream.js
-|       |-- storage/
-|       |   |-- history-storage.js
-|       |   `-- draft-storage.js
-|       `-- providers/
-|           |-- provider-interface.js
-|           |-- provider-router.js
-|           |-- format-router.js
-|           |-- system-instruction.js
-|           |-- vendors/
-|           |   |-- gemini-provider.js
-|           |   |-- openai-provider.js
-|           |   `-- anthropic-provider.js
-|           `-- adapters/
-|               |-- gemini-generate-content.js
-|               |-- openai-chat-completions.js
-|               |-- openai-responses.js
-|               `-- anthropic-messages.js
-|-- tests/
-|   `-- chat/
-|       |-- anthropic-provider.test.mjs
-|       |-- config-manager.test.mjs
-|       |-- message-model.test.mjs
-|       |-- context-window.test.mjs
-|       |-- session-store.test.mjs
-|       |-- gemini-provider-stream.test.mjs
-|       |-- gemini-provider.test.mjs
-|       |-- openai-provider.test.mjs
-|       |-- marker-stream-splitter.test.mjs
-|       |-- pseudo-stream.test.mjs
-|       |-- local-message.test.mjs
-|       |-- format-router.test.mjs
-|       `-- draft-storage.test.mjs
-|-- README.md
-`-- README.en.md
-```
+### 直接使用
 
-## 快速开始
+在浏览器中打开 `index.html` 即可。
 
-### 方式 1：直接打开
-
-直接在浏览器中打开 `index.html`。
-
-### 方式 2：本地静态服务
+### 本地服务
 
 ```bash
-# Python 3
+# Python
 python -m http.server 8000
 
 # Node.js
 npx serve
 ```
 
-然后访问 `http://localhost:8000`。
+访问 `http://localhost:8000`
 
 ### 运行测试
 
 ```bash
-# 推荐
 npm test
-
-# 或
-node --test tests/chat/*.test.mjs
 ```
 
-## 配置说明
+## ⚙️ 配置
 
-### 1) 天气配置（心知天气）
+### 天气配置
 
-支持以下三种方式：
+三种方式任选其一：
 
-1. `localStorage` 中写入 `startpage_config.weatherApiKey`
-2. 页面启动前注入 `window.__STARTPAGE_CONFIG__`
-3. 使用 `startpage_config.weatherProxyUrl` 走后端代理（推荐，避免前端暴露密钥）
-
-示例：
-
+1. **localStorage 配置**
 ```js
 localStorage.setItem('startpage_config', JSON.stringify({
   weatherApiKey: 'YOUR_SENIVERSE_API_KEY'
 }));
 ```
 
-### 2) 聊天配置（Gemini / OpenAI Chat Completions / OpenAI Responses / Anthropic）
+2. **全局变量注入**
+```js
+window.__STARTPAGE_CONFIG__ = {
+  weatherApiKey: 'YOUR_KEY'
+};
+```
 
-在聊天设置中配置：
+3. **代理模式**（推荐）
+```js
+localStorage.setItem('startpage_config', JSON.stringify({
+  weatherProxyUrl: 'https://your-proxy.com/weather'
+}));
+```
 
-- Provider（Gemini / OpenAI Chat Completions / OpenAI Responses / Anthropic）
-- API URL（默认：
-  - Gemini: `https://generativelanguage.googleapis.com/v1beta`
-  - OpenAI: `https://api.openai.com/v1`
-  - Anthropic: `https://api.anthropic.com/v1`
-    ）
-- 主/备 API Key
-- 模型名（例如 `gemini-2.5-pro` / `gpt-4o-mini` / `claude-sonnet-4-5-20250929`）
-- System Prompt
-- Thinking（可选）：
-  - Gemini / Anthropic：正整数预算
-  - OpenAI：`none|minimal|low|medium|high|xhigh`
-- Web Search（可选）：
-  - Gemini：`gemini_google_search`
-  - Anthropic：`anthropic_web_search`
-  - OpenAI：`openai_web_search_low|medium|high`
-- Experience（伪流式开关、草稿自动保存开关）
-- Message Prefix（时间戳、用户名前缀）
-- 图片输入（点击图片按钮上传，或直接粘贴图片；可与文本一起发送）
+### AI 聊天配置
 
-说明：配置按 Provider 独立保存；切换 Provider 会自动回填对应配置。OpenAI 的 Reasoning Effort 在切换后可持续保留。
+在聊天设置面板中配置：
 
-## 聊天行为要点
+| 配置项 | 说明 |
+|--------|------|
+| Provider | Gemini / OpenAI / Anthropic |
+| API URL | 默认官方端点，可自定义 |
+| API Key | 主/备双 Key 支持 |
+| Model | 模型名称（如 `gemini-2.5-pro`）|
+| System Prompt | 系统提示词 |
+| Thinking | 思考预算（Gemini/Anthropic：整数；OpenAI：级别）|
+| Web Search | 网络搜索工具（各 Provider 格式不同）|
+| Experience | 伪流式、草稿保存开关 |
+| Message Prefix | 时间戳、用户名前缀 |
 
-- 支持 Gemini / OpenAI Chat Completions / OpenAI Responses / Anthropic Provider（统一走 provider router）
-- 会话历史使用 `llm_chat_history_v2`（schema version = 3）
-- 草稿按会话保存到 `llm_chat_drafts_v1`
-- 开启伪流式时支持实时分段：检测 `<|CHANGE_ROLE|>` 与 `<|END_SENTENCE|>` 标记即落地段落
-- 关闭伪流式时不按标记拆分（标记按普通文本处理）
-- 用户消息支持 `text + image` 多 part，本地抽象后再按 Provider 路由转换
-- 点击 Stop：请求中会 Abort；伪流式中会停止渲染并保留已输出内容
-- 请求失败时显示错误气泡，支持“回填输入框”
-- 点击用户消息重试按钮会按 `turnId` 回退该轮及其后续消息
-- 生成中会阻止切会话/新建/清空等操作（避免状态错乱）
+> 配置按 Provider 独立保存，切换时自动回填。
 
-## Chat 模块分层
+## 🏗️ 技术架构
 
-- `app/`：编排层（配置管理、请求发送、流式控制）
-- `ui/`：视图层（消息渲染、Markdown、安全展示、交互控件）
-- `session/`：会话层（会话状态与历史列表操作）
-- `core/`：纯逻辑层（消息模型、上下文窗口、分段器、伪流式等）
-- `providers/`：模型适配层（各 Provider 客户端 + 请求格式适配）
-- `storage/`：持久化层（历史与草稿 schema/读写）
+### 技术栈
+- 原生 HTML + CSS + JavaScript（ES Modules）
+- 无构建工具，零依赖运行
+- Marked + highlight.js（Markdown 渲染）
+- localStorage 持久化
 
-## 本地存储键
+### 模块分层
 
-- `llm_chat_config`：聊天配置
-- `llm_chat_history_v2`：聊天会话历史（schema version 3）
-- `llm_chat_drafts_v1`：聊天草稿（按会话）
-- `startpage_config`：运行时配置（天气等）
+```
+chat/
+├── app/          # 编排层（配置、请求、流控制）
+├── ui/           # 视图层（渲染、Markdown、交互）
+├── session/      # 会话层（状态管理、历史操作）
+├── core/         # 核心层（消息模型、上下文窗口、伪流式）
+├── providers/    # 适配层（多模型统一接口）
+└── storage/      # 持久化层（历史、草稿 schema）
+```
 
-## 调试开关（可选）
+## 📦 项目结构
 
-- `window.__CHAT_CONTEXT_DEBUG__ = true`
-- `localStorage.setItem('llm_chat_context_debug', '1')`
-- `window.__CHAT_CONTEXT_MAX_MESSAGES__ = 80`
-- `localStorage.setItem('llm_chat_context_max_messages', '80')`
+```
+home/
+├── index.html
+├── css/
+│   ├── variables.css
+│   ├── base.css
+│   ├── animations.css
+│   ├── components.css
+│   ├── chat.css
+│   └── mobile.css
+├── js/
+│   ├── main.js
+│   ├── config.js
+│   ├── utils.js
+│   ├── time.js
+│   ├── theme.js
+│   ├── weather.js
+│   ├── network.js
+│   ├── starfield.js
+│   ├── mobile.js
+│   ├── chat.js
+│   ├── shared/
+│   │   └── safe-storage.js
+│   └── chat/
+│       ├── constants.js
+│       ├── app/
+│       ├── ui/
+│       ├── session/
+│       ├── core/
+│       ├── storage/
+│       └── providers/
+└── tests/
+    └── chat/
+```
 
-## 兼容性
+## 🔧 高级配置
+
+### 调试开关
+
+```js
+// 上下文窗口调试
+window.__CHAT_CONTEXT_DEBUG__ = true;
+localStorage.setItem('llm_chat_context_debug', '1');
+
+// 自定义最大消息数
+window.__CHAT_CONTEXT_MAX_MESSAGES__ = 80;
+localStorage.setItem('llm_chat_context_max_messages', '80');
+```
+
+### 本地存储键
+
+| 键名 | 用途 |
+|------|------|
+| `llm_chat_config` | 聊天配置 |
+| `llm_chat_history_v2` | 会话历史（schema v3）|
+| `llm_chat_drafts_v1` | 草稿（按会话）|
+| `startpage_config` | 运行时配置 |
+
+## 🌐 浏览器兼容性
 
 - Chrome / Edge 90+
 - Firefox 88+
 - Safari 14+
-- 主流移动端浏览器（iOS Safari、Chrome Mobile、Firefox Mobile）
+- iOS Safari / Chrome Mobile / Firefox Mobile
 
-要求：浏览器支持 ES Modules 与 CSS Variables。
+要求：ES Modules + CSS Variables 支持
 
-## 许可证
+## 📄 许可证
 
-MIT License
-
-Copyright (c) 2026 梏权
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+MIT License © 2026 梏权
