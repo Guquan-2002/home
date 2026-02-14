@@ -13,7 +13,7 @@ function createGeminiConfig(overrides = {}) {
         model: 'gemini-2.5-pro',
         systemPrompt: 'You are a helpful assistant.',
         searchMode: '',
-        thinkingBudget: null,
+        thinkingLevel: null,
         enablePseudoStream: true,
         ...overrides
     };

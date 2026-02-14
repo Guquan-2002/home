@@ -20,6 +20,7 @@ import {
     createOpenAiProvider,
     createOpenAiResponsesProvider
 } from './chat/providers/vendors/openai-provider.js';
+import { createArkProvider } from './chat/providers/vendors/ark-provider.js';
 import { createAnthropicProvider } from './chat/providers/vendors/anthropic-provider.js';
 import { createProviderRouter } from './chat/providers/provider-router.js';
 import { createDraftManager } from './chat/storage/draft-storage.js';
@@ -52,7 +53,7 @@ function getChatElements() {
         cfgBackupKey: $('#cfg-api-key-backup'),
         cfgModel: $('#cfg-model'),
         cfgPrompt: $('#cfg-system-prompt'),
-        cfgThinkingBudget: $('#cfg-thinking-budget'),
+        cfgThinkingLevel: $('#cfg-thinking-level'),
         cfgThinkingLabel: $('#cfg-thinking-label'),
         cfgThinkingNote: $('#cfg-thinking-note'),
         cfgSearchMode: $('#cfg-search-mode'),
@@ -78,14 +79,18 @@ function setupInputAutosize(chatInput) {
 }
 
 function syncProviderPresentation(elements, providerId) {
+    const isGemini = providerId === CHAT_PROVIDER_IDS.gemini;
     const isOpenAiCompletions = providerId === CHAT_PROVIDER_IDS.openai;
     const isOpenAiResponses = providerId === CHAT_PROVIDER_IDS.openaiResponses;
     const isOpenAi = isOpenAiCompletions || isOpenAiResponses;
+    const isArk = providerId === CHAT_PROVIDER_IDS.arkResponses;
     const isAnthropic = providerId === CHAT_PROVIDER_IDS.anthropic;
 
     if (elements.cfgUrl) {
         elements.cfgUrl.placeholder = isOpenAi
             ? 'https://api.openai.com/v1'
+            : isArk
+                ? 'https://ark.cn-beijing.volces.com/api/v3/responses'
             : isAnthropic
                 ? 'https://api.anthropic.com/v1'
                 : 'https://generativelanguage.googleapis.com/v1beta';
@@ -94,6 +99,8 @@ function syncProviderPresentation(elements, providerId) {
     if (elements.cfgKey) {
         elements.cfgKey.placeholder = isOpenAi
             ? 'sk-...'
+            : isArk
+                ? 'ark-...'
             : isAnthropic
                 ? 'sk-ant-...'
                 : 'AIza...';
@@ -102,6 +109,8 @@ function syncProviderPresentation(elements, providerId) {
     if (elements.cfgBackupKey) {
         elements.cfgBackupKey.placeholder = isOpenAi
             ? 'sk-...'
+            : isArk
+                ? 'ark-...'
             : isAnthropic
                 ? 'sk-ant-...'
                 : 'AIza...';
@@ -110,15 +119,19 @@ function syncProviderPresentation(elements, providerId) {
     if (elements.cfgModel) {
         elements.cfgModel.placeholder = isOpenAi
             ? 'gpt-4o-mini'
+            : isArk
+                ? 'doubao-seed-2-0-pro-260215'
             : isAnthropic
                 ? 'claude-sonnet-4-5-20250929'
                 : 'gemini-2.5-pro';
     }
 
     if (elements.cfgThinkingLabel) {
-        elements.cfgThinkingLabel.textContent = isOpenAi
+        elements.cfgThinkingLabel.textContent = (isOpenAi || isArk)
             ? 'Reasoning Effort (Optional)'
-            : 'Thinking Budget (Optional)';
+            : isAnthropic
+                ? 'Thinking Effort (Optional)'
+                : 'Thinking Level (Optional)';
     }
 
     if (elements.cfgThinkingNote) {
@@ -126,26 +139,32 @@ function syncProviderPresentation(elements, providerId) {
             ? isOpenAiResponses
                 ? 'OpenAI Responses: reasoning.effort supports none/minimal/low/medium/high/xhigh.'
                 : 'OpenAI Chat Completions: reasoning_effort supports none/minimal/low/medium/high/xhigh.'
+            : isArk
+                ? 'Ark Responses: use thinking.type=enabled and reasoning.effort=minimal/low/medium/high.'
             : isAnthropic
-                ? 'Anthropic format: positive integer budget_tokens (recommended >= 1024).'
-                : 'Gemini format: positive integer token budget.';
+                ? 'Anthropic adaptive thinking: use thinking.type=adaptive + output_config.effort; none disables thinking.'
+                : 'Gemini 3 format: thinkingLevel supports off/low/medium/high.';
     }
 
-    if (elements.cfgThinkingBudget) {
-        if (isOpenAi) {
-            elements.cfgThinkingBudget.type = 'text';
-            elements.cfgThinkingBudget.inputMode = 'text';
-            elements.cfgThinkingBudget.removeAttribute('min');
-            elements.cfgThinkingBudget.removeAttribute('max');
-            elements.cfgThinkingBudget.removeAttribute('step');
-            elements.cfgThinkingBudget.placeholder = 'medium';
+    if (elements.cfgThinkingLevel) {
+        if (isOpenAi || isArk || isGemini || isAnthropic) {
+            elements.cfgThinkingLevel.type = 'text';
+            elements.cfgThinkingLevel.inputMode = 'text';
+            elements.cfgThinkingLevel.removeAttribute('min');
+            elements.cfgThinkingLevel.removeAttribute('max');
+            elements.cfgThinkingLevel.removeAttribute('step');
+            elements.cfgThinkingLevel.placeholder = isGemini
+                ? 'off / low / medium / high'
+                : isAnthropic
+                    ? 'none / low / medium / high'
+                    : 'medium';
         } else {
-            elements.cfgThinkingBudget.type = 'number';
-            elements.cfgThinkingBudget.inputMode = 'numeric';
-            elements.cfgThinkingBudget.min = isAnthropic ? '1024' : '1';
-            elements.cfgThinkingBudget.max = '100000';
-            elements.cfgThinkingBudget.step = '256';
-            elements.cfgThinkingBudget.placeholder = 'e.g. 2048';
+            elements.cfgThinkingLevel.type = 'number';
+            elements.cfgThinkingLevel.inputMode = 'numeric';
+            elements.cfgThinkingLevel.min = '1';
+            elements.cfgThinkingLevel.max = '100000';
+            elements.cfgThinkingLevel.step = '256';
+            elements.cfgThinkingLevel.placeholder = 'e.g. 2048';
         }
     }
 
@@ -154,6 +173,8 @@ function syncProviderPresentation(elements, providerId) {
             ? isOpenAiResponses
                 ? 'Web Search (OpenAI Responses)'
                 : 'Web Search (OpenAI Completions)'
+            : isArk
+                ? 'Web Search (Ark)'
             : isAnthropic
                 ? 'Web Search (Anthropic)'
                 : 'Web Search (Gemini)';
@@ -164,6 +185,8 @@ function syncProviderPresentation(elements, providerId) {
             ? isOpenAiResponses
                 ? 'OpenAI Responses uses the web_search tool with Low/Medium/High context size.'
                 : 'OpenAI Chat Completions uses web_search_options context size (Low/Medium/High).'
+            : isArk
+                ? 'Ark uses the built-in web_search tool (single mode).'
             : isAnthropic
                 ? 'Anthropic format: built-in web_search tool.'
                 : 'Gemini format: Google Search grounding.';
@@ -188,7 +211,7 @@ export function initChat() {
         cfgBackupKey: elements.cfgBackupKey,
         cfgModel: elements.cfgModel,
         cfgPrompt: elements.cfgPrompt,
-        cfgThinkingBudget: elements.cfgThinkingBudget,
+        cfgThinkingLevel: elements.cfgThinkingLevel,
         cfgSearchMode: elements.cfgSearchMode,
         cfgEnablePseudoStream: elements.cfgEnablePseudoStream,
         cfgEnableDraftAutosave: elements.cfgEnableDraftAutosave,
@@ -317,6 +340,9 @@ export function initChat() {
             maxRetries: CHAT_LIMITS.maxRetries
         }),
         createOpenAiResponsesProvider({
+            maxRetries: CHAT_LIMITS.maxRetries
+        }),
+        createArkProvider({
             maxRetries: CHAT_LIMITS.maxRetries
         }),
         createAnthropicProvider({

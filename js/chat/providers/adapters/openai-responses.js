@@ -77,15 +77,21 @@ function toResponsesImageUrl(image) {
  * @returns {Object|null} Responses API 格式的内容对象
  * @throws {Error} 如果图片格式不支持
  */
-function toInputContentPart(part) {
+function toInputContentPart(part, role) {
+    const normalizedRole = role === 'assistant' ? 'assistant' : 'user';
+
     if (part.type === 'text') {
         return {
-            type: 'input_text',
+            type: normalizedRole === 'assistant' ? 'output_text' : 'input_text',
             text: part.text
         };
     }
 
     if (part.type === 'image') {
+        if (normalizedRole === 'assistant') {
+            throw new Error('OpenAI Responses assistant message does not support image parts.');
+        }
+
         const contentPart = {
             type: 'input_image'
         };
@@ -140,13 +146,22 @@ export function buildOpenAiResponsesRequest({
 
     const endpoint = buildEndpoint(baseUrl);
     // 转换消息为 Responses API 的 input 格式
-    const input = envelope.messages.map((message) => ({
-        type: 'message',
-        role: message.role === 'assistant' ? 'assistant' : 'user',
-        content: message.parts
-            .map((part) => toInputContentPart(part))
-            .filter(Boolean)
-    }));
+    const input = envelope.messages.map((message, messageIndex) => {
+        const role = message.role === 'assistant' ? 'assistant' : 'user';
+        const content = message.parts
+            .map((part) => toInputContentPart(part, role))
+            .filter(Boolean);
+
+        if (content.length === 0) {
+            throw new Error(`OpenAI Responses message at index ${messageIndex} has empty content.`);
+        }
+
+        return {
+            type: 'message',
+            role,
+            content
+        };
+    });
 
     const body = {
         model: config.model,

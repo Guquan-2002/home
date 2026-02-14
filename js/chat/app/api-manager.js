@@ -587,6 +587,7 @@ export function createApiManager({
             gemini: 'Gemini',
             openai: 'OpenAI Chat Completions',
             openai_responses: 'OpenAI Responses',
+            ark_responses: 'Volcengine Ark Responses',
             anthropic: 'Anthropic'
         };
         const providerLabel = providerLabelMap[config.provider] || 'provider';

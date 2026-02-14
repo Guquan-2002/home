@@ -76,8 +76,8 @@ function createElements() {
         cfgBackupKey: createField(''),
         cfgModel: createField(''),
         cfgPrompt: createField(''),
-        cfgThinkingBudget: createField('', {
-            type: 'number',
+        cfgThinkingLevel: createField('', {
+            type: 'text',
             emulateNumberType: true
         }),
         cfgSearchMode: createField(''),
@@ -101,7 +101,7 @@ test('config manager keeps provider specific credentials and models when switchi
     elements.cfgUrl.value = 'https://generativelanguage.googleapis.com/v1beta';
     elements.cfgKey.value = 'gem-key';
     elements.cfgModel.value = 'gemini-3-pro-preview';
-    elements.cfgThinkingBudget.value = '2048';
+    elements.cfgThinkingLevel.value = 'high';
     elements.cfgSearchMode.value = 'gemini_google_search';
     elements.cfgProvider.dispatchEvent(new Event('change'));
 
@@ -114,7 +114,7 @@ test('config manager keeps provider specific credentials and models when switchi
     elements.cfgUrl.value = 'https://api.openai.com/v1';
     elements.cfgKey.value = 'openai-key';
     elements.cfgModel.value = 'gpt-5';
-    elements.cfgThinkingBudget.value = 'medium';
+    elements.cfgThinkingLevel.value = 'medium';
     elements.cfgSearchMode.value = 'openai_web_search_high';
 
     elements.cfgProvider.value = 'openai_responses';
@@ -126,8 +126,20 @@ test('config manager keeps provider specific credentials and models when switchi
     elements.cfgUrl.value = 'https://api.openai.com/v1';
     elements.cfgKey.value = 'openai-responses-key';
     elements.cfgModel.value = 'gpt-5';
-    elements.cfgThinkingBudget.value = 'high';
+    elements.cfgThinkingLevel.value = 'high';
     elements.cfgSearchMode.value = 'openai_web_search_medium';
+
+    elements.cfgProvider.value = 'ark_responses';
+    elements.cfgProvider.dispatchEvent(new Event('change'));
+
+    assert.equal(elements.cfgUrl.value, 'https://ark.cn-beijing.volces.com/api/v3/responses');
+    assert.equal(elements.cfgModel.value, 'doubao-seed-2-0-pro-260215');
+
+    elements.cfgUrl.value = 'https://ark.cn-beijing.volces.com/api/v3/responses';
+    elements.cfgKey.value = 'ark-key';
+    elements.cfgModel.value = 'doubao-seed-2-0-pro-260215';
+    elements.cfgThinkingLevel.value = 'medium';
+    elements.cfgSearchMode.value = 'ark_web_search';
 
     elements.cfgProvider.value = 'anthropic';
     elements.cfgProvider.dispatchEvent(new Event('change'));
@@ -138,7 +150,7 @@ test('config manager keeps provider specific credentials and models when switchi
     elements.cfgUrl.value = 'https://api.anthropic.com/v1';
     elements.cfgKey.value = 'anthropic-key';
     elements.cfgModel.value = 'claude-sonnet-4-5-20250929';
-    elements.cfgThinkingBudget.value = '2048';
+    elements.cfgThinkingLevel.value = 'none';
     elements.cfgSearchMode.value = 'anthropic_web_search';
 
     elements.cfgProvider.value = 'gemini';
@@ -146,7 +158,7 @@ test('config manager keeps provider specific credentials and models when switchi
 
     assert.equal(elements.cfgKey.value, 'gem-key');
     assert.equal(elements.cfgModel.value, 'gemini-3-pro-preview');
-    assert.equal(elements.cfgThinkingBudget.value, '2048');
+    assert.equal(elements.cfgThinkingLevel.value, 'high');
     assert.equal(elements.cfgSearchMode.value, 'gemini_google_search');
 
     elements.cfgProvider.value = 'openai';
@@ -154,7 +166,7 @@ test('config manager keeps provider specific credentials and models when switchi
 
     assert.equal(elements.cfgKey.value, 'openai-key');
     assert.equal(elements.cfgModel.value, 'gpt-5');
-    assert.equal(elements.cfgThinkingBudget.value, 'medium');
+    assert.equal(elements.cfgThinkingLevel.value, 'medium');
     assert.equal(elements.cfgSearchMode.value, 'openai_web_search_high');
 
     elements.cfgProvider.value = 'anthropic';
@@ -162,7 +174,7 @@ test('config manager keeps provider specific credentials and models when switchi
 
     assert.equal(elements.cfgKey.value, 'anthropic-key');
     assert.equal(elements.cfgModel.value, 'claude-sonnet-4-5-20250929');
-    assert.equal(elements.cfgThinkingBudget.value, '2048');
+    assert.equal(elements.cfgThinkingLevel.value, 'none');
     assert.equal(elements.cfgSearchMode.value, 'anthropic_web_search');
 
     elements.cfgProvider.value = 'openai';
@@ -170,7 +182,7 @@ test('config manager keeps provider specific credentials and models when switchi
 
     assert.equal(elements.cfgKey.value, 'openai-key');
     assert.equal(elements.cfgModel.value, 'gpt-5');
-    assert.equal(elements.cfgThinkingBudget.value, 'medium');
+    assert.equal(elements.cfgThinkingLevel.value, 'medium');
     assert.equal(elements.cfgSearchMode.value, 'openai_web_search_high');
 
     elements.cfgProvider.value = 'openai_responses';
@@ -178,29 +190,96 @@ test('config manager keeps provider specific credentials and models when switchi
 
     assert.equal(elements.cfgKey.value, 'openai-responses-key');
     assert.equal(elements.cfgModel.value, 'gpt-5');
-    assert.equal(elements.cfgThinkingBudget.value, 'high');
+    assert.equal(elements.cfgThinkingLevel.value, 'high');
     assert.equal(elements.cfgSearchMode.value, 'openai_web_search_medium');
+
+    elements.cfgProvider.value = 'ark_responses';
+    elements.cfgProvider.dispatchEvent(new Event('change'));
+
+    assert.equal(elements.cfgKey.value, 'ark-key');
+    assert.equal(elements.cfgModel.value, 'doubao-seed-2-0-pro-260215');
+    assert.equal(elements.cfgThinkingLevel.value, 'medium');
+    assert.equal(elements.cfgSearchMode.value, 'ark_web_search');
 
     elements.cfgProvider.value = 'anthropic';
     elements.cfgProvider.dispatchEvent(new Event('change'));
 
     assert.equal(elements.cfgKey.value, 'anthropic-key');
     assert.equal(elements.cfgModel.value, 'claude-sonnet-4-5-20250929');
-    assert.equal(elements.cfgThinkingBudget.value, '2048');
+    assert.equal(elements.cfgThinkingLevel.value, 'none');
     assert.equal(elements.cfgSearchMode.value, 'anthropic_web_search');
 
     manager.saveConfig();
     const saved = JSON.parse(storage.getItem('llm_chat_config'));
     assert.equal(saved.provider, 'anthropic');
     assert.equal(saved.profiles.gemini.model, 'gemini-3-pro-preview');
+    assert.equal(saved.profiles.gemini.thinkingLevel, 'high');
     assert.equal(saved.profiles.openai.model, 'gpt-5');
     assert.equal(saved.profiles.openai.thinkingBudget, 'medium');
     assert.equal(saved.profiles.openai.searchMode, 'openai_web_search_high');
     assert.equal(saved.profiles.openai_responses.model, 'gpt-5');
     assert.equal(saved.profiles.openai_responses.thinkingBudget, 'high');
     assert.equal(saved.profiles.openai_responses.searchMode, 'openai_web_search_medium');
+    assert.equal(saved.profiles.ark_responses.model, 'doubao-seed-2-0-pro-260215');
+    assert.equal(saved.profiles.ark_responses.thinkingBudget, 'medium');
+    assert.equal(saved.profiles.ark_responses.searchMode, 'ark_web_search');
     assert.equal(saved.profiles.anthropic.model, 'claude-sonnet-4-5-20250929');
-    assert.equal(saved.profiles.anthropic.thinkingBudget, 2048);
+    assert.equal(saved.profiles.anthropic.thinkingEffort, 'none');
+    assert.equal(saved.profiles.anthropic.thinkingBudget, undefined);
     assert.equal(saved.profiles.anthropic.searchMode, 'anthropic_web_search');
+});
+
+test('config manager clears legacy Gemini thinkingBudget during migration', () => {
+    const storage = createMemoryStorage();
+    globalThis.localStorage = storage;
+    storage.setItem('llm_chat_config', JSON.stringify({
+        provider: 'gemini',
+        profiles: {
+            gemini: {
+                apiUrl: 'https://generativelanguage.googleapis.com/v1beta',
+                model: 'gemini-3-pro-preview',
+                thinkingBudget: 2048
+            }
+        }
+    }));
+
+    const elements = createElements();
+    const manager = createConfigManager(elements, 'llm_chat_config');
+    manager.loadConfig();
+
+    assert.equal(elements.cfgProvider.value, 'gemini');
+    assert.equal(elements.cfgThinkingLevel.value, '');
+
+    manager.saveConfig();
+    const saved = JSON.parse(storage.getItem('llm_chat_config'));
+    assert.equal(saved.profiles.gemini.thinkingLevel, null);
+    assert.equal(saved.profiles.gemini.thinkingBudget, undefined);
+});
+
+test('config manager clears legacy Anthropic thinkingBudget during migration', () => {
+    const storage = createMemoryStorage();
+    globalThis.localStorage = storage;
+    storage.setItem('llm_chat_config', JSON.stringify({
+        provider: 'anthropic',
+        profiles: {
+            anthropic: {
+                apiUrl: 'https://api.anthropic.com/v1',
+                model: 'claude-sonnet-4-5-20250929',
+                thinkingBudget: 2048
+            }
+        }
+    }));
+
+    const elements = createElements();
+    const manager = createConfigManager(elements, 'llm_chat_config');
+    manager.loadConfig();
+
+    assert.equal(elements.cfgProvider.value, 'anthropic');
+    assert.equal(elements.cfgThinkingLevel.value, '');
+
+    manager.saveConfig();
+    const saved = JSON.parse(storage.getItem('llm_chat_config'));
+    assert.equal(saved.profiles.anthropic.thinkingEffort, null);
+    assert.equal(saved.profiles.anthropic.thinkingBudget, undefined);
 });
 

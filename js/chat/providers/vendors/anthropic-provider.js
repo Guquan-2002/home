@@ -23,6 +23,8 @@ import { CHAT_PROVIDER_IDS } from '../../constants.js';
 import { buildProviderRequest } from '../format-router.js';
 import { buildSystemInstruction } from '../system-instruction.js';
 
+const ANTHROPIC_NON_STREAM_THINKING_MAX_TOKENS = 21333;
+
 /**
  * 判断 HTTP 状态码是否应该重试
  * @param {number} statusCode - HTTP 状态码
@@ -72,6 +74,31 @@ function parseAnthropicStreamDelta(responseData) {
     return typeof responseData?.delta?.text === 'string'
         ? responseData.delta.text
         : '';
+}
+
+/**
+ * 解析 Anthropic 流式响应中的错误事件
+ *
+ * @param {Object} responseData - SSE 事件数据
+ * @returns {string} 错误消息（如果不是错误事件则返回空字符串）
+ */
+function parseAnthropicStreamError(responseData) {
+    if (responseData?.type !== 'error') {
+        return '';
+    }
+
+    const providerMessage = typeof responseData?.error?.message === 'string'
+        ? responseData.error.message.trim()
+        : '';
+    if (providerMessage) {
+        return providerMessage;
+    }
+
+    try {
+        return `Anthropic stream error: ${JSON.stringify(responseData)}`;
+    } catch {
+        return 'Anthropic stream error.';
+    }
 }
 
 /**
@@ -244,6 +271,36 @@ async function fetchWithRetry(fetchImpl, url, options, {
 }
 
 /**
+ * 发送 Anthropic 请求并返回原始 Response
+ *
+ * @param {Function} fetchImpl - Fetch 实现函数
+ * @param {Object} request - 请求对象
+ * @param {AbortSignal} signal - 取消信号
+ * @param {Object} retryOptions - 重试配置
+ * @returns {Promise<Response>} Fetch 响应
+ */
+async function sendAnthropicRequest(fetchImpl, request, signal, retryOptions) {
+    return fetchWithRetry(fetchImpl, request.endpoint, {
+        method: 'POST',
+        headers: request.headers,
+        body: JSON.stringify(request.body),
+        signal
+    }, retryOptions);
+}
+
+/**
+ * 判断非流式请求是否需要自动切换为流式（Thinking 限制）
+ *
+ * @param {Object} request - Anthropic 请求对象
+ * @returns {boolean} 是否需要自动切换
+ */
+function shouldAutoSwitchToThinkingStream(request) {
+    return request?.body?.thinking?.type === 'enabled'
+        && Number.isFinite(request?.body?.max_tokens)
+        && request.body.max_tokens > ANTHROPIC_NON_STREAM_THINKING_MAX_TOKENS;
+}
+
+/**
  * 提取 SSE 事件中的 data 字段内容
  *
  * 算法：
@@ -329,9 +386,67 @@ async function* readSseJsonEvents(response, signal) {
                 }
             }
         }
+
+        buffer += decoder.decode();
+
+        while (true) {
+            const delimiterMatch = /\r?\n\r?\n/.exec(buffer);
+            if (!delimiterMatch) {
+                break;
+            }
+
+            const rawEvent = buffer.slice(0, delimiterMatch.index);
+            buffer = buffer.slice(delimiterMatch.index + delimiterMatch[0].length);
+            const rawData = extractSseDataPayload(rawEvent);
+            if (!rawData) {
+                continue;
+            }
+
+            try {
+                yield JSON.parse(rawData);
+            } catch {
+                // Ignore malformed payload.
+            }
+        }
+
+        const residualData = extractSseDataPayload(buffer.trim());
+        if (residualData) {
+            try {
+                yield JSON.parse(residualData);
+            } catch {
+                // Ignore malformed payload.
+            }
+        }
     } finally {
         reader.releaseLock?.();
     }
+}
+
+/**
+ * 消费 Anthropic SSE 响应并聚合文本
+ *
+ * @param {Response} response - Fetch API 响应对象
+ * @param {AbortSignal} signal - 取消信号
+ * @returns {Promise<string>} 聚合后的文本
+ */
+async function consumeAnthropicStreamText(response, signal) {
+    let text = '';
+
+    for await (const payload of readSseJsonEvents(response, signal)) {
+        const streamError = parseAnthropicStreamError(payload);
+        if (streamError) {
+            throw new Error(streamError);
+        }
+
+        const deltaText = parseAnthropicStreamDelta(payload);
+        if (!deltaText) {
+            continue;
+        }
+
+        text += deltaText;
+    }
+
+    return text;
 }
 
 /**
@@ -422,24 +537,50 @@ export function createAnthropicProvider({
                         stream: false,
                         apiKey: apiKeys[keyIndex]
                     });
-                    const response = await fetchWithRetry(fetchImpl, request.endpoint, {
-                        method: 'POST',
-                        headers: request.headers,
-                        body: JSON.stringify(request.body),
-                        signal
-                    }, {
+                    const retryOptions = {
                         maxRetries,
                         maxRetryDelayMs,
                         onRetryNotice
-                    });
+                    };
 
-                    if (!response.ok) {
-                        const details = await readErrorDetails(response);
-                        throw new Error(`HTTP ${response.status}: ${details}`);
+                    let assistantRawText = '';
+                    if (shouldAutoSwitchToThinkingStream(request)) {
+                        const streamRequest = buildProviderRequest({
+                            providerId,
+                            config,
+                            envelope: requestEnvelope,
+                            stream: true,
+                            apiKey: apiKeys[keyIndex]
+                        });
+                        const streamResponse = await sendAnthropicRequest(
+                            fetchImpl,
+                            streamRequest,
+                            signal,
+                            retryOptions
+                        );
+
+                        if (!streamResponse.ok) {
+                            const details = await readErrorDetails(streamResponse);
+                            throw new Error(`HTTP ${streamResponse.status}: ${details}`);
+                        }
+
+                        assistantRawText = await consumeAnthropicStreamText(streamResponse, signal);
+                    } else {
+                        const response = await sendAnthropicRequest(
+                            fetchImpl,
+                            request,
+                            signal,
+                            retryOptions
+                        );
+
+                        if (!response.ok) {
+                            const details = await readErrorDetails(response);
+                            throw new Error(`HTTP ${response.status}: ${details}`);
+                        }
+
+                        const responseData = await response.json();
+                        assistantRawText = parseAnthropicText(responseData);
                     }
-
-                    const responseData = await response.json();
-                    const assistantRawText = parseAnthropicText(responseData);
 
                     return {
                         segments: splitAssistantMessageByMarker(assistantRawText, {
@@ -520,12 +661,7 @@ export function createAnthropicProvider({
                         stream: true,
                         apiKey: apiKeys[keyIndex]
                     });
-                    const response = await fetchWithRetry(fetchImpl, request.endpoint, {
-                        method: 'POST',
-                        headers: request.headers,
-                        body: JSON.stringify(request.body),
-                        signal
-                    }, {
+                    const response = await sendAnthropicRequest(fetchImpl, request, signal, {
                         maxRetries,
                         maxRetryDelayMs,
                         onRetryNotice
@@ -537,6 +673,11 @@ export function createAnthropicProvider({
                     }
 
                     for await (const payload of readSseJsonEvents(response, signal)) {
+                        const streamError = parseAnthropicStreamError(payload);
+                        if (streamError) {
+                            throw new Error(streamError);
+                        }
+
                         const deltaText = parseAnthropicStreamDelta(payload);
                         if (!deltaText) {
                             continue;
@@ -575,7 +716,6 @@ export function createAnthropicProvider({
         }
     };
 }
-
 
 
 

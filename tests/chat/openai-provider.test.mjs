@@ -278,6 +278,54 @@ test('openai provider supports responses API for non-stream requests', async () 
     assert.deepEqual(result.segments, ['responses ok']);
 });
 
+test('openai responses request maps assistant history text to output_text', async () => {
+    let requestBody = null;
+    const fetchMock = async (_url, options) => {
+        requestBody = JSON.parse(options.body);
+
+        return new Response(JSON.stringify({
+            output_text: 'ok'
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    };
+
+    const provider = createOpenAiResponsesProvider({ fetchImpl: fetchMock, maxRetries: 0 });
+    await provider.generate({
+        config: createOpenAiConfig({ backupApiKey: '' }),
+        contextMessages: [
+            { role: 'user', content: 'u1' },
+            { role: 'assistant', content: 'a1' },
+            { role: 'user', content: 'u2' }
+        ],
+        signal: new AbortController().signal
+    });
+
+    assert.deepEqual(requestBody.input, [{
+        type: 'message',
+        role: 'user',
+        content: [{
+            type: 'input_text',
+            text: 'u1'
+        }]
+    }, {
+        type: 'message',
+        role: 'assistant',
+        content: [{
+            type: 'output_text',
+            text: 'a1'
+        }]
+    }, {
+        type: 'message',
+        role: 'user',
+        content: [{
+            type: 'input_text',
+            text: 'u2'
+        }]
+    }]);
+});
+
 test('openai provider supports responses API streaming deltas', async () => {
     const encoder = new TextEncoder();
     const streamBody = new ReadableStream({

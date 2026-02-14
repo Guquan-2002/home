@@ -87,6 +87,7 @@
                             <option value="gemini">Gemini</option>
                             <option value="openai">OpenAI (Chat Completions)</option>
                             <option value="openai_responses">OpenAI (Responses)</option>
+                            <option value="ark_responses">Volcengine Ark (Responses)</option>
                             <option value="anthropic">Anthropic</option>
                         </select>
                     </label>
@@ -112,9 +113,9 @@
                         <textarea id="cfg-system-prompt" rows="3" placeholder="You are a helpful assistant."></textarea>
                     </label>
 
-                    <label><span id="cfg-thinking-label">Thinking Budget (Optional)</span>
-                        <input type="number" id="cfg-thinking-budget" placeholder="e.g. 2048" min="1" max="100000" step="256" spellcheck="false">
-                        <small id="cfg-thinking-note" class="chat-settings-note">Gemini-only option. Ignored by OpenAI provider.</small>
+                    <label><span id="cfg-thinking-label">Thinking Level (Optional)</span>
+                        <input type="text" id="cfg-thinking-level" placeholder="off / low / medium / high" spellcheck="false">
+                        <small id="cfg-thinking-note" class="chat-settings-note">Gemini 3 supports thinkingLevel: off/low/medium/high.</small>
                     </label>
 
                     <label><span id="cfg-search-label">Web Search</span>
@@ -122,11 +123,12 @@
                             <option value="">Disabled</option>
                             <option value="gemini_google_search">Gemini Google Search</option>
                             <option value="anthropic_web_search">Anthropic Web Search</option>
+                            <option value="ark_web_search">Ark Web Search</option>
                             <option value="openai_web_search_low">OpenAI Web Search (Low)</option>
                             <option value="openai_web_search_medium">OpenAI Web Search (Medium)</option>
                             <option value="openai_web_search_high">OpenAI Web Search (High)</option>
                         </select>
-                        <small id="cfg-search-note" class="chat-settings-note">Gemini uses Google Search grounding; Anthropic uses web_search; OpenAI uses web search context size.</small>
+                        <small id="cfg-search-note" class="chat-settings-note">Gemini uses Google Search grounding; Anthropic and Ark use web_search; OpenAI uses web search context size.</small>
                     </label>
 
                     <div class="chat-settings-section">

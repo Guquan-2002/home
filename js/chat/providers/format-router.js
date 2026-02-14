@@ -17,6 +17,7 @@ import { buildLocalMessageEnvelope } from '../core/local-message.js';
 import { CHAT_PROVIDER_IDS } from '../constants.js';
 import { buildOpenAiChatCompletionsRequest } from './adapters/openai-chat-completions.js';
 import { buildOpenAiResponsesRequest } from './adapters/openai-responses.js';
+import { buildArkResponsesRequest } from './adapters/ark-responses.js';
 import { buildAnthropicMessagesRequest } from './adapters/anthropic-messages.js';
 import { buildGeminiGenerateContentRequest } from './adapters/gemini-generate-content.js';
 
@@ -24,6 +25,7 @@ import { buildGeminiGenerateContentRequest } from './adapters/gemini-generate-co
 const REQUEST_BUILDERS = new Map([
     [CHAT_PROVIDER_IDS.openai, buildOpenAiChatCompletionsRequest],
     [CHAT_PROVIDER_IDS.openaiResponses, buildOpenAiResponsesRequest],
+    [CHAT_PROVIDER_IDS.arkResponses, buildArkResponsesRequest],
     [CHAT_PROVIDER_IDS.anthropic, buildAnthropicMessagesRequest],
     [CHAT_PROVIDER_IDS.gemini, buildGeminiGenerateContentRequest]
 ]);

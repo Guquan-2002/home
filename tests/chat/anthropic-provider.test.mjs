@@ -139,7 +139,36 @@ test('anthropic provider stream yields text deltas from SSE', async () => {
     assert.equal(deltas.join(''), 'Hello world');
 });
 
-test('anthropic provider maps thinking budget and web search format', async () => {
+test('anthropic provider stream throws on SSE error event', async () => {
+    const encoder = new TextEncoder();
+    const streamBody = new ReadableStream({
+        start(controller) {
+            controller.enqueue(encoder.encode(
+                toSseEvent({ type: 'content_block_delta', delta: { type: 'text_delta', text: 'Hello ' } })
+                + toSseEvent({ type: 'error', error: { message: 'stream failed' } }, 'error')
+            ));
+            controller.close();
+        }
+    });
+
+    const fetchMock = async () => new Response(streamBody, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' }
+    });
+
+    const provider = createAnthropicProvider({ fetchImpl: fetchMock, maxRetries: 0 });
+
+    await assert.rejects(
+        collectDeltas(provider.generateStream({
+            config: createAnthropicConfig({ backupApiKey: '' }),
+            contextMessages,
+            signal: new AbortController().signal
+        })),
+        /stream failed/
+    );
+});
+
+test('anthropic provider maps thinking effort and web search format', async () => {
     let requestBody = null;
     const fetchMock = async (_url, options) => {
         requestBody = JSON.parse(options.body);
@@ -155,7 +184,7 @@ test('anthropic provider maps thinking budget and web search format', async () =
     await provider.generate({
         config: createAnthropicConfig({
             backupApiKey: '',
-            thinkingBudget: 2048,
+            thinkingEffort: 'medium',
             searchMode: 'anthropic_web_search'
         }),
         contextMessages,
@@ -163,8 +192,10 @@ test('anthropic provider maps thinking budget and web search format', async () =
     });
 
     assert.deepEqual(requestBody.thinking, {
-        type: 'enabled',
-        budget_tokens: 2048
+        type: 'adaptive'
+    });
+    assert.deepEqual(requestBody.output_config, {
+        effort: 'medium'
     });
     assert.deepEqual(requestBody.tools, [{
         type: 'web_search_20250305',
@@ -177,6 +208,60 @@ test('anthropic provider maps thinking budget and web search format', async () =
         type: 'text',
         text: 'hello'
     }]);
+});
+
+test('anthropic provider omits thinking when effort is none', async () => {
+    let requestBody = null;
+    const fetchMock = async (_url, options) => {
+        requestBody = JSON.parse(options.body);
+        return new Response(JSON.stringify({
+            content: [{ type: 'text', text: 'ok' }]
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    };
+
+    const provider = createAnthropicProvider({ fetchImpl: fetchMock, maxRetries: 0 });
+    await provider.generate({
+        config: createAnthropicConfig({
+            backupApiKey: '',
+            thinkingEffort: 'none'
+        }),
+        contextMessages,
+        signal: new AbortController().signal
+    });
+
+    assert.equal(requestBody.thinking, undefined);
+    assert.equal(requestBody.output_config, undefined);
+});
+
+test('anthropic provider keeps non-stream request for adaptive thinking', async () => {
+    const requestBodies = [];
+    const fetchMock = async (_url, options) => {
+        requestBodies.push(JSON.parse(options.body));
+        return new Response(JSON.stringify({
+            content: [{ type: 'text', text: 'non stream' }]
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    };
+
+    const provider = createAnthropicProvider({ fetchImpl: fetchMock, maxRetries: 0 });
+    const result = await provider.generate({
+        config: createAnthropicConfig({
+            backupApiKey: '',
+            thinkingEffort: 'high',
+            maxTokens: 50000
+        }),
+        contextMessages,
+        signal: new AbortController().signal
+    });
+
+    assert.equal(requestBodies.length, 1);
+    assert.equal(requestBodies[0].stream, false);
+    assert.deepEqual(result.segments, ['non stream']);
 });
 
 test('anthropic provider stream does not switch to backup key after first delta', async () => {

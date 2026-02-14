@@ -27,6 +27,7 @@ export const CHAT_PROVIDER_IDS = Object.freeze({
     gemini: 'gemini',
     openai: 'openai',
     openaiResponses: 'openai_responses',
+    arkResponses: 'ark_responses',
     anthropic: 'anthropic'
 });
 
@@ -56,7 +57,8 @@ export const GEMINI_DEFAULTS = Object.freeze({
     provider: CHAT_PROVIDER_IDS.gemini,
     apiUrl: 'https://generativelanguage.googleapis.com/v1beta',
     model: 'gemini-3-pro-preview',
-    ...COMMON_CHAT_DEFAULTS
+    ...COMMON_CHAT_DEFAULTS,
+    thinkingLevel: null
 });
 
 // OpenAI Chat Completions Provider 默认配置
@@ -75,12 +77,21 @@ export const OPENAI_RESPONSES_DEFAULTS = Object.freeze({
     ...COMMON_CHAT_DEFAULTS
 });
 
+// Volcengine Ark Responses Provider 默认配置
+export const ARK_RESPONSES_DEFAULTS = Object.freeze({
+    provider: CHAT_PROVIDER_IDS.arkResponses,
+    apiUrl: 'https://ark.cn-beijing.volces.com/api/v3/responses',
+    model: 'doubao-seed-2-0-pro-260215',
+    ...COMMON_CHAT_DEFAULTS
+});
+
 // Anthropic Provider 默认配置
 export const ANTHROPIC_DEFAULTS = Object.freeze({
     provider: CHAT_PROVIDER_IDS.anthropic,
     apiUrl: 'https://api.anthropic.com/v1',
     model: 'claude-sonnet-4-5-20250929',
-    ...COMMON_CHAT_DEFAULTS
+    ...COMMON_CHAT_DEFAULTS,
+    thinkingEffort: null
 });
 
 // 全局默认配置（默认使用 Gemini）
@@ -100,6 +111,10 @@ export function getProviderDefaults(providerId) {
 
     if (providerId === CHAT_PROVIDER_IDS.openaiResponses) {
         return OPENAI_RESPONSES_DEFAULTS;
+    }
+
+    if (providerId === CHAT_PROVIDER_IDS.arkResponses) {
+        return ARK_RESPONSES_DEFAULTS;
     }
 
     if (providerId === CHAT_PROVIDER_IDS.anthropic) {

@@ -23,10 +23,12 @@ const SUPPORTED_PROVIDER_IDS = Object.values(CHAT_PROVIDER_IDS);
 
 // OpenAI 推理级别枚举
 const OPENAI_REASONING_LEVELS = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh']);
+const ARK_THINKING_LEVELS = new Set(['minimal', 'low', 'medium', 'high']);
 
 // 各 Provider 的搜索模式枚举
 const GEMINI_SEARCH_MODES = new Set(['', 'gemini_google_search']);
 const ANTHROPIC_SEARCH_MODES = new Set(['', 'anthropic_web_search']);
+const ARK_SEARCH_MODES = new Set(['', 'ark_web_search']);
 const OPENAI_SEARCH_MODES = new Set([
     '',
     'openai_web_search_low',
@@ -43,11 +45,24 @@ function isOpenAiProvider(provider) {
 }
 
 /**
- * 解析正整数
+ * 检查是否为 Ark Provider
  */
-function parsePositiveInteger(rawValue) {
-    const parsed = Number.parseInt(rawValue, 10);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+function isArkProvider(provider) {
+    return provider === CHAT_PROVIDER_IDS.arkResponses;
+}
+
+/**
+ * 检查是否为 Gemini Provider
+ */
+function isGeminiProvider(provider) {
+    return provider === CHAT_PROVIDER_IDS.gemini;
+}
+
+/**
+ * 检查是否为 Anthropic Provider
+ */
+function isAnthropicProvider(provider) {
+    return provider === CHAT_PROVIDER_IDS.anthropic;
 }
 
 /**
@@ -97,10 +112,34 @@ function normalizeProvider(rawValue) {
 }
 
 /**
- * 规范化思考预算值
+ * 规范化 Gemini 思考级别
+ */
+function normalizeGeminiThinkingLevel(rawValue) {
+    if (typeof rawValue !== 'string') {
+        return null;
+    }
+
+    const normalized = rawValue.trim();
+    return normalized || null;
+}
+
+/**
+ * 规范化 Anthropic thinking effort
+ */
+function normalizeAnthropicThinkingEffort(rawValue) {
+    if (typeof rawValue !== 'string') {
+        return null;
+    }
+
+    const normalized = rawValue.trim();
+    return normalized || null;
+}
+
+/**
+ * 规范化思考配置值（OpenAI/Ark）
  *
  * OpenAI: 字符串枚举（'none', 'low', 'medium', 'high' 等）
- * 其他: 正整数（Token 数量）
+ * Ark: 字符串枚举（'minimal', 'low', 'medium', 'high'）
  */
 function normalizeThinkingValue(provider, rawValue) {
     if (isOpenAiProvider(provider)) {
@@ -108,7 +147,12 @@ function normalizeThinkingValue(provider, rawValue) {
         return OPENAI_REASONING_LEVELS.has(normalized) ? normalized : null;
     }
 
-    return parsePositiveInteger(rawValue);
+    if (isArkProvider(provider)) {
+        const normalized = typeof rawValue === 'string' ? rawValue.trim().toLowerCase() : '';
+        return ARK_THINKING_LEVELS.has(normalized) ? normalized : null;
+    }
+
+    return null;
 }
 
 /**
@@ -127,6 +171,10 @@ function normalizeSearchMode(provider, rawValue) {
         return ANTHROPIC_SEARCH_MODES.has(normalized) ? normalized : '';
     }
 
+    if (isArkProvider(provider)) {
+        return ARK_SEARCH_MODES.has(normalized) ? normalized : '';
+    }
+
     return GEMINI_SEARCH_MODES.has(normalized) ? normalized : '';
 }
 
@@ -141,16 +189,33 @@ function normalizeSearchMode(provider, rawValue) {
 function normalizeProviderProfile(provider, rawProfile = {}, fallbackProfile = null) {
     const defaults = getProviderDefaults(provider);
     const fallback = fallbackProfile || defaults;
-
-    return {
+    const profile = {
         apiUrl: typeof rawProfile.apiUrl === 'string' && rawProfile.apiUrl.trim()
             ? rawProfile.apiUrl.trim()
             : fallback.apiUrl,
         apiKey: typeof rawProfile.apiKey === 'string' ? rawProfile.apiKey.trim() : (fallback.apiKey || ''),
         backupApiKey: typeof rawProfile.backupApiKey === 'string' ? rawProfile.backupApiKey.trim() : (fallback.backupApiKey || ''),
         model: typeof rawProfile.model === 'string' ? rawProfile.model.trim() : (fallback.model || ''),
-        thinkingBudget: normalizeThinkingValue(provider, rawProfile.thinkingBudget),
         searchMode: normalizeSearchMode(provider, rawProfile.searchMode)
+    };
+
+    if (isGeminiProvider(provider)) {
+        return {
+            ...profile,
+            thinkingLevel: normalizeGeminiThinkingLevel(rawProfile.thinkingLevel)
+        };
+    }
+
+    if (isAnthropicProvider(provider)) {
+        return {
+            ...profile,
+            thinkingEffort: normalizeAnthropicThinkingEffort(rawProfile.thinkingEffort)
+        };
+    }
+
+    return {
+        ...profile,
+        thinkingBudget: normalizeThinkingValue(provider, rawProfile.thinkingBudget)
     };
 }
 
@@ -220,6 +285,8 @@ function normalizeStoredConfig(raw) {
         apiKey: raw?.apiKey,
         backupApiKey: raw?.backupApiKey,
         model: raw?.model,
+        thinkingLevel: raw?.thinkingLevel,
+        thinkingEffort: raw?.thinkingEffort,
         thinkingBudget: raw?.thinkingBudget,
         searchMode: raw?.searchMode
     };
@@ -242,6 +309,15 @@ function normalizeStoredConfig(raw) {
     });
 
     const activeProfile = profiles[provider];
+    const thinkingBudget = Object.prototype.hasOwnProperty.call(activeProfile, 'thinkingBudget')
+        ? activeProfile.thinkingBudget
+        : null;
+    const thinkingLevel = Object.prototype.hasOwnProperty.call(activeProfile, 'thinkingLevel')
+        ? activeProfile.thinkingLevel
+        : null;
+    const thinkingEffort = Object.prototype.hasOwnProperty.call(activeProfile, 'thinkingEffort')
+        ? activeProfile.thinkingEffort
+        : null;
 
     return {
         provider,
@@ -250,7 +326,9 @@ function normalizeStoredConfig(raw) {
         apiKey: activeProfile.apiKey,
         backupApiKey: activeProfile.backupApiKey,
         model: activeProfile.model,
-        thinkingBudget: activeProfile.thinkingBudget,
+        thinkingBudget,
+        thinkingLevel,
+        thinkingEffort,
         searchMode: activeProfile.searchMode,
         systemPrompt: typeof raw?.systemPrompt === 'string' ? raw.systemPrompt : CHAT_DEFAULTS.systemPrompt,
         enablePseudoStream: parseBoolean(raw?.enablePseudoStream, CHAT_DEFAULTS.enablePseudoStream),
@@ -265,7 +343,7 @@ function normalizeStoredConfig(raw) {
  * 格式化思考预算值为字符串（用于表单显示）
  */
 function formatThinkingValue(provider, thinkingValue) {
-    if (isOpenAiProvider(provider)) {
+    if (isOpenAiProvider(provider) || isArkProvider(provider) || isGeminiProvider(provider) || isAnthropicProvider(provider)) {
         return typeof thinkingValue === 'string' ? thinkingValue : '';
     }
 
@@ -276,6 +354,14 @@ function formatThinkingValue(provider, thinkingValue) {
  * 解析思考预算输入值
  */
 function parseThinkingInput(provider, rawValue) {
+    if (isGeminiProvider(provider)) {
+        return normalizeGeminiThinkingLevel(rawValue);
+    }
+
+    if (isAnthropicProvider(provider)) {
+        return normalizeAnthropicThinkingEffort(rawValue);
+    }
+
     return normalizeThinkingValue(provider, rawValue);
 }
 
@@ -289,15 +375,14 @@ function readSearchInput(provider, searchValue) {
 /**
  * 同步思考预算输入框类型
  *
- * OpenAI: text（字符串枚举）
- * 其他: number（整数）
+ * OpenAI/Ark/Gemini/Anthropic: text（字符串枚举或透传文本）
  */
 function syncThinkingInputType(field, provider) {
     if (!field) {
         return;
     }
 
-    if (isOpenAiProvider(provider)) {
+    if (isOpenAiProvider(provider) || isArkProvider(provider) || isGeminiProvider(provider) || isAnthropicProvider(provider)) {
         field.type = 'text';
         return;
     }
@@ -331,7 +416,7 @@ export function createConfigManager(elements, storageKey) {
         cfgBackupKey,
         cfgModel,
         cfgPrompt,
-        cfgThinkingBudget,
+        cfgThinkingLevel,
         cfgSearchMode,
         cfgEnablePseudoStream,
         cfgEnableDraftAutosave,
@@ -350,14 +435,20 @@ export function createConfigManager(elements, storageKey) {
      * @returns {Object} Provider 配置
      */
     function readProviderFields(provider) {
-        syncThinkingInputType(cfgThinkingBudget, provider);
+        syncThinkingInputType(cfgThinkingLevel, provider);
+        const thinkingValue = parseThinkingInput(provider, cfgThinkingLevel.value);
+        const thinkingFields = isGeminiProvider(provider)
+            ? { thinkingLevel: thinkingValue }
+            : isAnthropicProvider(provider)
+                ? { thinkingEffort: thinkingValue }
+                : { thinkingBudget: thinkingValue };
 
         return normalizeProviderProfile(provider, {
             apiUrl: cfgUrl.value,
             apiKey: cfgKey.value,
             backupApiKey: cfgBackupKey.value,
             model: cfgModel.value,
-            thinkingBudget: parseThinkingInput(provider, cfgThinkingBudget.value),
+            ...thinkingFields,
             searchMode: readSearchInput(provider, cfgSearchMode ? cfgSearchMode.value : '')
         }, profiles[provider]);
     }
@@ -375,8 +466,15 @@ export function createConfigManager(elements, storageKey) {
         cfgKey.value = profile.apiKey;
         cfgBackupKey.value = profile.backupApiKey;
         cfgModel.value = profile.model;
-        syncThinkingInputType(cfgThinkingBudget, provider);
-        cfgThinkingBudget.value = formatThinkingValue(provider, profile.thinkingBudget);
+        syncThinkingInputType(cfgThinkingLevel, provider);
+        cfgThinkingLevel.value = formatThinkingValue(
+            provider,
+            isGeminiProvider(provider)
+                ? profile.thinkingLevel
+                : isAnthropicProvider(provider)
+                    ? profile.thinkingEffort
+                    : profile.thinkingBudget
+        );
 
         if (cfgSearchMode) {
             cfgSearchMode.value = profile.searchMode;
@@ -460,7 +558,15 @@ export function createConfigManager(elements, storageKey) {
             apiKey: activeProfile.apiKey,
             backupApiKey: activeProfile.backupApiKey,
             model: activeProfile.model,
-            thinkingBudget: activeProfile.thinkingBudget,
+            thinkingBudget: Object.prototype.hasOwnProperty.call(activeProfile, 'thinkingBudget')
+                ? activeProfile.thinkingBudget
+                : null,
+            thinkingLevel: Object.prototype.hasOwnProperty.call(activeProfile, 'thinkingLevel')
+                ? activeProfile.thinkingLevel
+                : null,
+            thinkingEffort: Object.prototype.hasOwnProperty.call(activeProfile, 'thinkingEffort')
+                ? activeProfile.thinkingEffort
+                : null,
             searchMode: activeProfile.searchMode,
             systemPrompt: cfgPrompt.value,
             enablePseudoStream: cfgEnablePseudoStream ? cfgEnablePseudoStream.checked : CHAT_DEFAULTS.enablePseudoStream,

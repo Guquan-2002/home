@@ -10,6 +10,8 @@ function createBaseConfig(overrides = {}) {
         apiUrl: 'https://example.com/v1',
         model: 'model-test',
         thinkingBudget: null,
+        thinkingLevel: null,
+        thinkingEffort: null,
         searchMode: '',
         ...overrides
     };
@@ -104,6 +106,129 @@ test('format router builds OpenAI responses request with input_text + input_imag
     });
 });
 
+test('format router maps OpenAI responses assistant history text to output_text', () => {
+    const request = buildProviderRequest({
+        providerId: CHAT_PROVIDER_IDS.openaiResponses,
+        config: createBaseConfig({
+            provider: CHAT_PROVIDER_IDS.openaiResponses,
+            apiUrl: 'https://api.openai.com/v1',
+            model: 'gpt-4o-mini'
+        }),
+        envelope: {
+            messages: [
+                {
+                    role: 'user',
+                    parts: [{ type: 'text', text: 'u1' }]
+                },
+                {
+                    role: 'assistant',
+                    parts: [{ type: 'text', text: 'a1' }]
+                },
+                {
+                    role: 'user',
+                    parts: [{ type: 'text', text: 'u2' }]
+                }
+            ]
+        },
+        stream: false,
+        apiKey: 'sk-test'
+    });
+
+    assert.deepEqual(request.body.input, [
+        {
+            type: 'message',
+            role: 'user',
+            content: [{ type: 'input_text', text: 'u1' }]
+        },
+        {
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'output_text', text: 'a1' }]
+        },
+        {
+            type: 'message',
+            role: 'user',
+            content: [{ type: 'input_text', text: 'u2' }]
+        }
+    ]);
+});
+
+test('format router throws when OpenAI responses assistant history includes image', () => {
+    assert.throws(() => buildProviderRequest({
+        providerId: CHAT_PROVIDER_IDS.openaiResponses,
+        config: createBaseConfig({
+            provider: CHAT_PROVIDER_IDS.openaiResponses,
+            apiUrl: 'https://api.openai.com/v1',
+            model: 'gpt-4o-mini'
+        }),
+        envelope: {
+            messages: [{
+                role: 'assistant',
+                parts: [{
+                    type: 'image',
+                    image: {
+                        sourceType: 'url',
+                        value: 'https://example.com/a.png'
+                    }
+                }]
+            }]
+        },
+        stream: false,
+        apiKey: 'sk-test'
+    }), /assistant message does not support image parts/);
+});
+
+test('format router builds Ark responses request with thinking + web search', () => {
+    const request = buildProviderRequest({
+        providerId: CHAT_PROVIDER_IDS.arkResponses,
+        config: createBaseConfig({
+            provider: CHAT_PROVIDER_IDS.arkResponses,
+            apiUrl: 'https://ark.cn-beijing.volces.com/api/v3/responses',
+            model: 'doubao-seed-2-0-pro-260215',
+            thinkingBudget: 'medium',
+            searchMode: 'ark_web_search'
+        }),
+        envelope: {
+            systemInstruction: 'Ark system',
+            messages: [{
+                role: 'user',
+                parts: [
+                    { type: 'text', text: 'summarize this image' },
+                    {
+                        type: 'image',
+                        image: {
+                            sourceType: 'file_id',
+                            value: 'file-ark-1'
+                        }
+                    }
+                ]
+            }]
+        },
+        stream: false,
+        apiKey: 'ark-key'
+    });
+
+    assert.equal(request.endpoint, 'https://ark.cn-beijing.volces.com/api/v3/responses');
+    assert.equal(request.headers.Authorization, 'Bearer ark-key');
+    assert.deepEqual(request.body.thinking, {
+        type: 'enabled'
+    });
+    assert.deepEqual(request.body.reasoning, {
+        effort: 'medium'
+    });
+    assert.deepEqual(request.body.tools, [{
+        type: 'web_search'
+    }]);
+    assert.deepEqual(request.body.input[0], {
+        type: 'message',
+        role: 'user',
+        content: [
+            { type: 'input_text', text: 'summarize this image' },
+            { type: 'input_image', file_id: 'file-ark-1' }
+        ]
+    });
+});
+
 test('format router builds Anthropic request with top-level system and base64 image source', () => {
     const request = buildProviderRequest({
         providerId: CHAT_PROVIDER_IDS.anthropic,
@@ -111,7 +236,7 @@ test('format router builds Anthropic request with top-level system and base64 im
             provider: CHAT_PROVIDER_IDS.anthropic,
             apiUrl: 'https://api.anthropic.com/v1',
             model: 'claude-sonnet-4-5-20250929',
-            thinkingBudget: 2048,
+            thinkingEffort: 'medium',
             searchMode: 'anthropic_web_search'
         }),
         envelope: {
@@ -135,8 +260,10 @@ test('format router builds Anthropic request with top-level system and base64 im
     assert.equal(request.headers['x-api-key'], 'sk-ant-test');
     assert.equal(request.body.system, 'Anthropic system');
     assert.deepEqual(request.body.thinking, {
-        type: 'enabled',
-        budget_tokens: 2048
+        type: 'adaptive'
+    });
+    assert.deepEqual(request.body.output_config, {
+        effort: 'medium'
     });
     assert.deepEqual(request.body.tools, [{
         type: 'web_search_20250305',
@@ -152,6 +279,29 @@ test('format router builds Anthropic request with top-level system and base64 im
     });
 });
 
+test('format router omits Anthropic thinking when effort is none', () => {
+    const request = buildProviderRequest({
+        providerId: CHAT_PROVIDER_IDS.anthropic,
+        config: createBaseConfig({
+            provider: CHAT_PROVIDER_IDS.anthropic,
+            apiUrl: 'https://api.anthropic.com/v1',
+            model: 'claude-sonnet-4-5-20250929',
+            thinkingEffort: 'none'
+        }),
+        envelope: {
+            messages: [{
+                role: 'user',
+                parts: [{ type: 'text', text: 'hello' }]
+            }]
+        },
+        stream: false,
+        apiKey: 'sk-ant-test'
+    });
+
+    assert.equal(request.body.thinking, undefined);
+    assert.equal(request.body.output_config, undefined);
+});
+
 test('format router builds Gemini request with inline_data and file_data parts', () => {
     const request = buildProviderRequest({
         providerId: CHAT_PROVIDER_IDS.gemini,
@@ -160,7 +310,7 @@ test('format router builds Gemini request with inline_data and file_data parts',
             apiUrl: 'https://generativelanguage.googleapis.com/v1beta',
             model: 'gemini-2.5-pro',
             searchMode: 'gemini_google_search',
-            thinkingBudget: 4096
+            thinkingLevel: 'high'
         }),
         envelope: {
             systemInstruction: 'Gemini system',
@@ -200,7 +350,7 @@ test('format router builds Gemini request with inline_data and file_data parts',
     assert.deepEqual(request.body.tools, [{ google_search: {} }]);
     assert.deepEqual(request.body.generationConfig, {
         thinkingConfig: {
-            thinkingBudget: 4096
+            thinkingLevel: 'high'
         }
     });
     assert.deepEqual(request.body.contents[0].parts[1], {
@@ -215,4 +365,26 @@ test('format router builds Gemini request with inline_data and file_data parts',
             mime_type: 'image/png'
         }
     });
+});
+
+test('format router omits Gemini thinkingConfig when thinkingLevel is empty', () => {
+    const request = buildProviderRequest({
+        providerId: CHAT_PROVIDER_IDS.gemini,
+        config: createBaseConfig({
+            provider: CHAT_PROVIDER_IDS.gemini,
+            apiUrl: 'https://generativelanguage.googleapis.com/v1beta',
+            model: 'gemini-2.5-pro',
+            thinkingLevel: ''
+        }),
+        envelope: {
+            messages: [{
+                role: 'user',
+                parts: [{ type: 'text', text: 'hello' }]
+            }]
+        },
+        stream: false,
+        apiKey: 'AIza-test'
+    });
+
+    assert.equal(request.body.generationConfig, undefined);
 });
