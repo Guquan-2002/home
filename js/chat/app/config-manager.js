@@ -421,7 +421,6 @@ export function createConfigManager(elements, storageKey) {
         cfgModel,
         cfgPrompt,
         cfgThinkingLevel,
-        cfgThinkingCustom,
         cfgSearchMode,
         cfgEnablePseudoStream,
         cfgEnableDraftAutosave,
@@ -441,14 +440,7 @@ export function createConfigManager(elements, storageKey) {
      */
     function readProviderFields(provider) {
         syncThinkingInputType(cfgThinkingLevel, provider);
-
-        // Read thinking value from select or custom input
-        let thinkingRawValue = cfgThinkingLevel.value;
-        if (thinkingRawValue === '__custom__' && cfgThinkingCustom) {
-            thinkingRawValue = cfgThinkingCustom.value;
-        }
-
-        const thinkingValue = parseThinkingInput(provider, thinkingRawValue);
+        const thinkingValue = parseThinkingInput(provider, cfgThinkingLevel.value);
         const thinkingFields = isGeminiProvider(provider)
             ? { thinkingLevel: thinkingValue }
             : isAnthropicProvider(provider)
@@ -480,7 +472,7 @@ export function createConfigManager(elements, storageKey) {
         cfgModel.value = profile.model;
         syncThinkingInputType(cfgThinkingLevel, provider);
 
-        const thinkingValue = formatThinkingValue(
+        cfgThinkingLevel.value = formatThinkingValue(
             provider,
             isGeminiProvider(provider)
                 ? profile.thinkingLevel
@@ -489,30 +481,6 @@ export function createConfigManager(elements, storageKey) {
                     : profile.thinkingBudget
         );
 
-        // Check if value exists in select options
-        const optionExists = Array.from(cfgThinkingLevel.options || []).some(
-            opt => opt.value === thinkingValue
-        );
-
-        if (optionExists) {
-            cfgThinkingLevel.value = thinkingValue;
-            if (cfgThinkingCustom) {
-                cfgThinkingCustom.style.display = 'none';
-                cfgThinkingCustom.value = '';
-            }
-        } else if (thinkingValue && cfgThinkingCustom) {
-            // Use custom input for non-standard values
-            cfgThinkingLevel.value = '__custom__';
-            cfgThinkingCustom.value = thinkingValue;
-            cfgThinkingCustom.style.display = '';
-        } else {
-            cfgThinkingLevel.value = thinkingValue;
-            if (cfgThinkingCustom) {
-                cfgThinkingCustom.style.display = 'none';
-                cfgThinkingCustom.value = '';
-            }
-        }
-
         if (cfgSearchMode) {
             cfgSearchMode.value = profile.searchMode;
             if (dispatchSearchChange) {
@@ -520,7 +488,6 @@ export function createConfigManager(elements, storageKey) {
             }
         }
     }
-
     /**
      * 切换 Provider
      *
@@ -658,6 +625,11 @@ export function createConfigManager(elements, storageKey) {
         getConfig
     };
 }
+
+
+
+
+
 
 
 

@@ -1,4 +1,4 @@
-// Chat bootstrap: wires chat UI, state, providers, config, and event handlers.
+﻿// Chat bootstrap: wires chat UI, state, providers, config, and event handlers.
 import { $ } from './utils.js';
 import {
     CHAT_DRAFTS_KEY,
@@ -54,7 +54,6 @@ function getChatElements() {
         cfgModel: $('#cfg-model'),
         cfgPrompt: $('#cfg-system-prompt'),
         cfgThinkingLevel: $('#cfg-thinking-level'),
-        cfgThinkingCustom: $('#cfg-thinking-custom'),
         cfgThinkingLabel: $('#cfg-thinking-label'),
         cfgThinkingNote: $('#cfg-thinking-note'),
         cfgSearchMode: $('#cfg-search-mode'),
@@ -143,85 +142,31 @@ function syncProviderPresentation(elements, providerId) {
             : isArk
                 ? 'Ark Responses: use thinking.type=enabled and reasoning.effort=minimal/low/medium/high.'
             : isAnthropic
-                ? 'Anthropic adaptive thinking: select effort level or use custom value.'
+                ? 'Anthropic adaptive thinking: use thinking.type=adaptive + output_config.effort; none disables thinking.'
                 : 'Gemini 3 format: thinkingLevel supports off/low/medium/high.';
     }
 
     if (elements.cfgThinkingLevel) {
-        const select = elements.cfgThinkingLevel;
-        const customInput = elements.cfgThinkingCustom;
-        const currentValue = select.value;
-
-        // Clear existing options
-        select.innerHTML = '';
-
-        // Add options based on provider
-        if (isGemini) {
-            select.add(new Option('Default (disabled)', ''));
-            select.add(new Option('Off', 'off'));
-            select.add(new Option('Low', 'low'));
-            select.add(new Option('Medium', 'medium'));
-            select.add(new Option('High', 'high'));
-            select.add(new Option('Custom...', '__custom__'));
-        } else if (isAnthropic) {
-            select.add(new Option('Default (disabled)', ''));
-            select.add(new Option('None', 'none'));
-            select.add(new Option('Low', 'low'));
-            select.add(new Option('Medium', 'medium'));
-            select.add(new Option('High', 'high'));
-            select.add(new Option('Max', 'max'));
-            select.add(new Option('Custom...', '__custom__'));
-        } else if (isOpenAi) {
-            select.add(new Option('Default', ''));
-            select.add(new Option('None', 'none'));
-            select.add(new Option('Minimal', 'minimal'));
-            select.add(new Option('Low', 'low'));
-            select.add(new Option('Medium', 'medium'));
-            select.add(new Option('High', 'high'));
-            select.add(new Option('Extra High', 'xhigh'));
-            select.add(new Option('Custom...', '__custom__'));
-        } else if (isArk) {
-            select.add(new Option('Default (disabled)', ''));
-            select.add(new Option('Minimal', 'minimal'));
-            select.add(new Option('Low', 'low'));
-            select.add(new Option('Medium', 'medium'));
-            select.add(new Option('High', 'high'));
-            select.add(new Option('Custom...', '__custom__'));
-        } else {
-            // For other providers, keep as number input
-            select.style.display = 'none';
-            if (customInput) {
-                customInput.style.display = '';
-                customInput.type = 'number';
-                customInput.inputMode = 'numeric';
-                customInput.min = '1';
-                customInput.max = '100000';
-                customInput.step = '256';
-                customInput.placeholder = 'e.g. 2048';
-            }
-            return;
-        }
-
-        // Show select, hide custom input by default
-        select.style.display = '';
-        if (customInput) {
-            customInput.style.display = 'none';
-            customInput.type = 'text';
-            customInput.removeAttribute('min');
-            customInput.removeAttribute('max');
-            customInput.removeAttribute('step');
-        }
-
-        // Restore value if it exists in options
-        if (currentValue) {
-            const optionExists = Array.from(select.options).some(opt => opt.value === currentValue);
-            if (optionExists) {
-                select.value = currentValue;
-            }
-        }
+    if (isOpenAi || isArk || isGemini || isAnthropic) {
+        elements.cfgThinkingLevel.type = 'text';
+        elements.cfgThinkingLevel.inputMode = 'text';
+        elements.cfgThinkingLevel.removeAttribute('min');
+        elements.cfgThinkingLevel.removeAttribute('max');
+        elements.cfgThinkingLevel.removeAttribute('step');
+        elements.cfgThinkingLevel.placeholder = isGemini
+            ? 'off / low / medium / high'
+            : isAnthropic
+                ? 'none / low / medium / high'
+                : 'medium';
+    } else {
+        elements.cfgThinkingLevel.type = 'number';
+        elements.cfgThinkingLevel.inputMode = 'numeric';
+        elements.cfgThinkingLevel.min = '1';
+        elements.cfgThinkingLevel.max = '100000';
+        elements.cfgThinkingLevel.step = '256';
+        elements.cfgThinkingLevel.placeholder = 'e.g. 2048';
     }
-
-    if (elements.cfgSearchLabel) {
+}if (elements.cfgSearchLabel) {
         elements.cfgSearchLabel.textContent = isOpenAi
             ? isOpenAiResponses
                 ? 'Web Search (OpenAI Responses)'
@@ -265,7 +210,6 @@ export function initChat() {
         cfgModel: elements.cfgModel,
         cfgPrompt: elements.cfgPrompt,
         cfgThinkingLevel: elements.cfgThinkingLevel,
-        cfgThinkingCustom: elements.cfgThinkingCustom,
         cfgSearchMode: elements.cfgSearchMode,
         cfgEnablePseudoStream: elements.cfgEnablePseudoStream,
         cfgEnableDraftAutosave: elements.cfgEnableDraftAutosave,
@@ -571,28 +515,16 @@ export function initChat() {
         });
     }
 
-    // Handle thinking level custom input toggle
-    if (elements.cfgThinkingLevel && elements.cfgThinkingCustom) {
-        elements.cfgThinkingLevel.addEventListener('change', () => {
-            if (elements.cfgThinkingLevel.value === '__custom__') {
-                elements.cfgThinkingCustom.style.display = '';
-                elements.cfgThinkingCustom.focus();
-            } else {
-                elements.cfgThinkingCustom.style.display = 'none';
-                elements.cfgThinkingCustom.value = '';
-            }
-        });
-    }
-
     initCustomSelect(elements.cfgProvider);
     initCustomSelect(elements.cfgSearchMode);
-    initCustomSelect(elements.cfgThinkingLevel);
-
     store.initialize();
     renderActiveConversation();
     restoreDraftForActiveSession();
     historyManager.renderHistoryList();
 }
+
+
+
 
 
 
