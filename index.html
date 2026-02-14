@@ -1,4 +1,4 @@
-ï»¿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -34,7 +34,7 @@
         <div id="search-container" role="search">
             <form id="search-form" action="#" method="get" target="_blank">
                 <label for="search-input" class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Search</label>
-                <input type="text" id="search-input" name="q" placeholder="ä½¿ç”¨ Google æœç´¢" autocomplete="off" autofocus>
+                <input type="text" id="search-input" name="q" placeholder="Ê¹ÓÃ Google ËÑË÷" autocomplete="off" autofocus>
                 <i class="search-icon fas fa-search" aria-hidden="true"></i>
             </form>
         </div>
@@ -118,8 +118,10 @@
                         <textarea id="cfg-system-prompt" rows="3" placeholder="You are a helpful assistant."></textarea>
                     </label>
 
-                    <label><span id="cfg-thinking-label">Thinking Level (Optional)</span>
-    <input type="text" id="cfg-thinking-level" placeholder="off / low / medium / high" spellcheck="false">
+                    <label><span id="cfg-thinking-label">Reasoning (optional)</span>
+    <select id="cfg-thinking-level">
+      <option value="">Auto</option>
+    </select>
     <small id="cfg-thinking-note" class="chat-settings-note">Gemini 3 supports thinkingLevel: off/low/medium/high.</small>
 </label>
 
@@ -195,4 +197,8 @@
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
+
+
+
+
 

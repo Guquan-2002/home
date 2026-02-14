@@ -43,8 +43,7 @@ export const CHAT_LIMITS = Object.freeze({
 // 所有 Provider 的通用默认配置
 const COMMON_CHAT_DEFAULTS = Object.freeze({
     systemPrompt: 'You are a helpful assistant.',
-    searchMode: '',
-    thinkingBudget: null,
+    searchMode: '' ,                // 搜索模式
     enablePseudoStream: true,       // 启用伪流式渲染
     enableDraftAutosave: true,      // 启用草稿自动保存
     prefixWithTime: false,          // 消息前缀包含时间戳
@@ -57,8 +56,7 @@ export const GEMINI_DEFAULTS = Object.freeze({
     provider: CHAT_PROVIDER_IDS.gemini,
     apiUrl: 'https://generativelanguage.googleapis.com/v1beta',
     model: 'gemini-3-pro-preview',
-    ...COMMON_CHAT_DEFAULTS,
-    thinkingLevel: null
+    ...COMMON_CHAT_DEFAULTS
 });
 
 // OpenAI Chat Completions Provider 默认配置
@@ -90,8 +88,7 @@ export const ANTHROPIC_DEFAULTS = Object.freeze({
     provider: CHAT_PROVIDER_IDS.anthropic,
     apiUrl: 'https://api.anthropic.com/v1',
     model: 'claude-sonnet-4-5-20250929',
-    ...COMMON_CHAT_DEFAULTS,
-    thinkingEffort: null
+    ...COMMON_CHAT_DEFAULTS
 });
 
 // 全局默认配置（默认使用 Gemini）

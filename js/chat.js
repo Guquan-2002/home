@@ -1,4 +1,4 @@
-﻿// Chat bootstrap: wires chat UI, state, providers, config, and event handlers.
+// Chat bootstrap: wires chat UI, state, providers, config, and event handlers.
 import { $ } from './utils.js';
 import {
     CHAT_DRAFTS_KEY,
@@ -12,7 +12,7 @@ import { setupMarked, renderMarkdown } from './chat/ui/markdown.js';
 import { createUiManager } from './chat/ui/ui-manager.js';
 import { createHistoryManager } from './chat/session/history-manager.js';
 import { createApiManager } from './chat/app/api-manager.js';
-import { initCustomSelect } from './chat/ui/custom-select.js';
+
 import { createSessionStore } from './chat/session/session-store.js';
 import { getMessageDisplayContent } from './chat/core/message-model.js';
 import { createGeminiProvider } from './chat/providers/vendors/gemini-provider.js';
@@ -24,7 +24,8 @@ import { createArkProvider } from './chat/providers/vendors/ark-provider.js';
 import { createAnthropicProvider } from './chat/providers/vendors/anthropic-provider.js';
 import { createProviderRouter } from './chat/providers/provider-router.js';
 import { createDraftManager } from './chat/storage/draft-storage.js';
-
+import { getThinkingOptions, getUiMeta } from './chat/app/thinking-config.js';
+import { initCustomSelect, refreshCustomSelect } from './chat/ui/custom-select.js';
 function getChatElements() {
     return {
         panel: $('#chat-panel'),
@@ -126,47 +127,35 @@ function syncProviderPresentation(elements, providerId) {
                 : 'gemini-2.5-pro';
     }
 
-    if (elements.cfgThinkingLabel) {
-        elements.cfgThinkingLabel.textContent = (isOpenAi || isArk)
-            ? 'Reasoning Effort (Optional)'
-            : isAnthropic
-                ? 'Thinking Effort (Optional)'
-                : 'Thinking Level (Optional)';
-    }
-
-    if (elements.cfgThinkingNote) {
-        elements.cfgThinkingNote.textContent = isOpenAi
-            ? isOpenAiResponses
-                ? 'OpenAI Responses: reasoning.effort supports none/minimal/low/medium/high/xhigh.'
-                : 'OpenAI Chat Completions: reasoning_effort supports none/minimal/low/medium/high/xhigh.'
-            : isArk
-                ? 'Ark Responses: use thinking.type=enabled and reasoning.effort=minimal/low/medium/high.'
-            : isAnthropic
-                ? 'Anthropic adaptive thinking: use thinking.type=adaptive + output_config.effort; none disables thinking.'
-                : 'Gemini 3 format: thinkingLevel supports off/low/medium/high.';
+    if (elements.cfgThinkingLabel || elements.cfgThinkingNote) {
+        const meta = getUiMeta(providerId);
+        if (elements.cfgThinkingLabel) elements.cfgThinkingLabel.textContent = meta.label;
+        if (elements.cfgThinkingNote) elements.cfgThinkingNote.textContent = meta.note;
     }
 
     if (elements.cfgThinkingLevel) {
-    if (isOpenAi || isArk || isGemini || isAnthropic) {
-        elements.cfgThinkingLevel.type = 'text';
-        elements.cfgThinkingLevel.inputMode = 'text';
-        elements.cfgThinkingLevel.removeAttribute('min');
-        elements.cfgThinkingLevel.removeAttribute('max');
-        elements.cfgThinkingLevel.removeAttribute('step');
-        elements.cfgThinkingLevel.placeholder = isGemini
-            ? 'off / low / medium / high'
-            : isAnthropic
-                ? 'none / low / medium / high'
-                : 'medium';
-    } else {
-        elements.cfgThinkingLevel.type = 'number';
-        elements.cfgThinkingLevel.inputMode = 'numeric';
-        elements.cfgThinkingLevel.min = '1';
-        elements.cfgThinkingLevel.max = '100000';
-        elements.cfgThinkingLevel.step = '256';
-        elements.cfgThinkingLevel.placeholder = 'e.g. 2048';
+        const select = elements.cfgThinkingLevel;
+        const prev = typeof select.value === 'string' ? select.value : '';
+        while (select.firstChild) select.removeChild(select.firstChild);
+        const optAuto = document.createElement('option');
+        optAuto.value = '';
+        optAuto.textContent = 'Auto';
+        select.appendChild(optAuto);
+        const options = getThinkingOptions(providerId);
+        options.forEach((o) => {
+            const opt = document.createElement('option');
+            opt.value = o.value;
+            opt.textContent = o.label;
+            select.appendChild(opt);
+        });
+        const values = new Set(options.map((o) => o.value));
+        select.value = prev && values.has(prev) ? prev : '';
+        refreshCustomSelect(select);
+        if (elements.cfgProvider) refreshCustomSelect(elements.cfgProvider);
+        if (elements.cfgSearchMode) refreshCustomSelect(elements.cfgSearchMode);
     }
-}if (elements.cfgSearchLabel) {
+
+    if (elements.cfgSearchLabel) {
         elements.cfgSearchLabel.textContent = isOpenAi
             ? isOpenAiResponses
                 ? 'Web Search (OpenAI Responses)'
@@ -189,9 +178,7 @@ function syncProviderPresentation(elements, providerId) {
                 ? 'Anthropic format: built-in web_search tool.'
                 : 'Gemini format: Google Search grounding.';
     }
-}
-
-export function initChat() {
+}export function initChat() {
     const elements = getChatElements();
     const store = createSessionStore({
         storage: globalThis.localStorage,
@@ -511,17 +498,27 @@ export function initChat() {
 
         elements.cfgProvider.addEventListener('change', () => {
             const providerId = elements.cfgProvider.value || CHAT_PROVIDER_IDS.gemini;
-            syncProviderPresentation(elements, providerId);
+            // Defer to run after config-manager's switchProvider handler,
+            // so we can repopulate options and preserve the provider-specific value.
+            setTimeout(() => syncProviderPresentation(elements, providerId), 0);
         });
     }
-
-    initCustomSelect(elements.cfgProvider);
-    initCustomSelect(elements.cfgSearchMode);
     store.initialize();
     renderActiveConversation();
     restoreDraftForActiveSession();
     historyManager.renderHistoryList();
 }
+
+
+
+
+
+
+
+
+
+
+
 
 
 

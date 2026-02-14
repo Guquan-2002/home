@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -86,8 +86,10 @@
                         <textarea id="cfg-system-prompt" rows="3" placeholder="You are a helpful assistant."></textarea>
                     </label>
 
-                    <label><span id="cfg-thinking-label">Thinking Level (Optional)</span>
-    <input type="text" id="cfg-thinking-level" placeholder="off / low / medium / high" spellcheck="false">
+                    <label><span id="cfg-thinking-label">Reasoning (optional)</span>
+    <select id="cfg-thinking-level">
+      <option value="">Auto</option>
+    </select>
     <small id="cfg-thinking-note" class="chat-settings-note">Gemini 3 supports thinkingLevel: off/low/medium/high.</small>
 </label>
 
@@ -162,4 +164,9 @@
     <script type="module" src="../js/chat-page.js"></script>
 </body>
 </html>
+
+
+
+
+
 
