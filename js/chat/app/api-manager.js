@@ -1,4 +1,18 @@
-// Chat API manager: orchestrates send/stream/abort flows between UI, state, and providers.
+﻿/**
+ * 鑱婂ぉ API 绠＄悊鍣?
+ *
+ * 鑱岃矗锛?
+ * - 鍗忚皟鍙戦€?娴佸紡/涓娴佺▼锛圲I銆佺姸鎬併€丳rovider 涔嬮棿锛?
+ * - 澶勭悊鐢ㄦ埛娑堟伅杈撳叆锛堟枃鏈€佸浘鐗囬檮浠讹級
+ * - 鏋勫缓涓婁笅鏂囩獥鍙ｅ苟璋冪敤 AI Provider
+ * - 绠＄悊娴佸紡鍝嶅簲鍜屼吉娴佸紡娓叉煋
+ * - 澶勭悊閿欒銆侀噸璇曘€佽秴鏃躲€佸鐢ㄥ瘑閽ュ垏鎹?
+ * - 鎻愪緵閲嶈瘯鍔熻兘锛堝洖婊氬埌鎸囧畾杞锛?
+ * - 璋冭瘯涓婁笅鏂囩獥鍙ｏ紙鍙€夛級
+ *
+ * 渚濊禆锛歝ontext-window, message-model, marker-stream-splitter, prefix, pseudo-stream, provider-interface
+ * 琚緷璧栵細chat.js
+ */
 import { buildContextPreview, buildLocalMessageEnvelope, normalizeMaxContextMessages } from '../core/context-window.js';
 import { createChatMessage, createTurnId, getMessageDisplayContent } from '../core/message-model.js';
 import { createMarkerStreamSplitter } from '../core/marker-stream-splitter.js';
@@ -7,10 +21,18 @@ import { ASSISTANT_SEGMENT_MARKER, ASSISTANT_SENTENCE_MARKER } from '../constant
 import { runPseudoStream } from '../core/pseudo-stream.js';
 import { assertProvider } from '../providers/provider-interface.js';
 
+// 涓婁笅鏂囪皟璇曠浉鍏冲父閲?
 const CONTEXT_DEBUG_STORAGE_KEY = 'llm_chat_context_debug';
 const CONTEXT_MAX_MESSAGES_STORAGE_KEY = 'llm_chat_context_max_messages';
 const CONTEXT_DEBUG_PREVIEW_CHARS = 80;
 
+/**
+ * 妫€鏌ユ槸鍚﹀惎鐢ㄤ笂涓嬫枃璋冭瘯
+ *
+ * 璋冭瘯妯″紡鍙€氳繃浠ヤ笅鏂瑰紡鍚敤锛?
+ * 1. 鍏ㄥ眬鍙橀噺锛歸indow.__CHAT_CONTEXT_DEBUG__ = true
+ * 2. localStorage锛歭lm_chat_context_debug = '1'
+ */
 function isContextDebugEnabled() {
     if (globalThis.__CHAT_CONTEXT_DEBUG__ === true) {
         return true;
@@ -27,6 +49,14 @@ function isContextDebugEnabled() {
     }
 }
 
+/**
+ * 瑙ｆ瀽涓婁笅鏂囨渶澶ф秷鎭暟
+ *
+ * 浼樺厛绾э細
+ * 1. 鍏ㄥ眬鍙橀噺锛歸indow.__CHAT_CONTEXT_MAX_MESSAGES__
+ * 2. localStorage锛歭lm_chat_context_max_messages
+ * 3. 榛樿鍊?
+ */
 function resolveContextMaxMessages(defaultValue) {
     const globalOverride = normalizeMaxContextMessages(globalThis.__CHAT_CONTEXT_MAX_MESSAGES__);
     if (globalOverride) {
@@ -47,6 +77,16 @@ function resolveContextMaxMessages(defaultValue) {
     return normalizeMaxContextMessages(defaultValue);
 }
 
+/**
+ * 杈撳嚭涓婁笅鏂囩獥鍙ｈ皟璇曚俊鎭?
+ *
+ * 鍖呭惈锛?
+ * - Provider 鍜屾ā鍨嬩俊鎭?
+ * - 娑堟伅鏁伴噺缁熻锛堟€绘暟銆佺敤鎴锋秷鎭€佸姪鎵嬫秷鎭級
+ * - Token 鏁伴噺鍜岄绠?
+ * - 鏄惁琚鍓?
+ * - 娑堟伅棰勮
+ */
 function logContextWindowDebug(contextWindow, config) {
     if (!isContextDebugEnabled()) {
         return;
@@ -84,7 +124,7 @@ function fileToDataUrl(file) {
 }
 
 function formatAttachmentNotice(count) {
-    return count === 1 ? '�Ѹ��� 1 ��ͼƬ' : `�Ѹ��� ${count} ��ͼƬ`;
+    return count === 1 ? '已上传 1 张图片' : `已上传 ${count} 张图片`;
 }
 
 export function createApiManager({
@@ -195,7 +235,7 @@ export function createApiManager({
             const removeBtn = document.createElement('button');
             removeBtn.type = 'button';
             removeBtn.className = 'chat-attachment-remove';
-            removeBtn.textContent = '��';
+            removeBtn.textContent = '锟斤拷';
             removeBtn.title = 'Remove image';
             removeBtn.addEventListener('click', () => {
                 pendingImageParts = pendingImageParts.filter((_, i) => i !== index);
@@ -261,7 +301,7 @@ export function createApiManager({
         ui.addErrorMessage({
             title,
             detail,
-            actionLabel: failedInputText ? '���������' : '',
+            actionLabel: failedInputText ? 'Retry' : '',
             onAction: failedInputText
                 ? () => refillFailedInput(failedInputText)
                 : null
@@ -576,12 +616,20 @@ export function createApiManager({
 
         const timestampPrefix = buildTimestampPrefix(config, userCreatedAt);
         const userNamePrefix = buildMessagePrefix(config);
-        const userContextText = text ? applyMessagePrefix(text, userNamePrefix) : '';
+        const userContextText = text
+            ? applyMessagePrefix(text, userNamePrefix)
+            : (userNamePrefix || '');
         const parts = [];
         if (text) {
             parts.push({
                 type: 'text',
                 text: userContextText || text
+            });
+        }
+        if (!text && hasImages && userContextText) {
+            parts.push({
+                type: 'text',
+                text: userContextText
             });
         }
         if (hasImages) {
@@ -590,7 +638,11 @@ export function createApiManager({
         const contentFallback = text || (hasImages ? '[Image]' : '');
         const displayContent = text
             ? userContextText
-            : formatAttachmentNotice(pendingImageParts.length);
+            : (
+                userContextText
+                    ? applyMessagePrefix(formatAttachmentNotice(pendingImageParts.length), userContextText)
+                    : formatAttachmentNotice(pendingImageParts.length)
+            );
 
         const messagesToAppend = [];
 
@@ -680,6 +732,7 @@ export function createApiManager({
         stopGeneration
     };
 }
+
 
 
 

@@ -100,7 +100,7 @@ test('config manager keeps provider specific credentials and models when switchi
     elements.cfgProvider.value = 'gemini';
     elements.cfgUrl.value = 'https://generativelanguage.googleapis.com/v1beta';
     elements.cfgKey.value = 'gem-key';
-    elements.cfgModel.value = 'gemini-2.5-pro';
+    elements.cfgModel.value = 'gemini-3-pro-preview';
     elements.cfgThinkingBudget.value = '2048';
     elements.cfgSearchMode.value = 'gemini_google_search';
     elements.cfgProvider.dispatchEvent(new Event('change'));
@@ -109,11 +109,11 @@ test('config manager keeps provider specific credentials and models when switchi
     elements.cfgProvider.dispatchEvent(new Event('change'));
 
     assert.equal(elements.cfgUrl.value, 'https://api.openai.com/v1');
-    assert.equal(elements.cfgModel.value, 'gpt-4o-mini');
+    assert.equal(elements.cfgModel.value, 'gpt-5');
 
     elements.cfgUrl.value = 'https://api.openai.com/v1';
     elements.cfgKey.value = 'openai-key';
-    elements.cfgModel.value = 'gpt-4o-mini';
+    elements.cfgModel.value = 'gpt-5';
     elements.cfgThinkingBudget.value = 'medium';
     elements.cfgSearchMode.value = 'openai_web_search_high';
 
@@ -121,11 +121,11 @@ test('config manager keeps provider specific credentials and models when switchi
     elements.cfgProvider.dispatchEvent(new Event('change'));
 
     assert.equal(elements.cfgUrl.value, 'https://api.openai.com/v1');
-    assert.equal(elements.cfgModel.value, 'gpt-4o-mini');
+    assert.equal(elements.cfgModel.value, 'gpt-5');
 
     elements.cfgUrl.value = 'https://api.openai.com/v1';
     elements.cfgKey.value = 'openai-responses-key';
-    elements.cfgModel.value = 'gpt-4o-mini';
+    elements.cfgModel.value = 'gpt-5';
     elements.cfgThinkingBudget.value = 'high';
     elements.cfgSearchMode.value = 'openai_web_search_medium';
 
@@ -145,7 +145,7 @@ test('config manager keeps provider specific credentials and models when switchi
     elements.cfgProvider.dispatchEvent(new Event('change'));
 
     assert.equal(elements.cfgKey.value, 'gem-key');
-    assert.equal(elements.cfgModel.value, 'gemini-2.5-pro');
+    assert.equal(elements.cfgModel.value, 'gemini-3-pro-preview');
     assert.equal(elements.cfgThinkingBudget.value, '2048');
     assert.equal(elements.cfgSearchMode.value, 'gemini_google_search');
 
@@ -153,7 +153,7 @@ test('config manager keeps provider specific credentials and models when switchi
     elements.cfgProvider.dispatchEvent(new Event('change'));
 
     assert.equal(elements.cfgKey.value, 'openai-key');
-    assert.equal(elements.cfgModel.value, 'gpt-4o-mini');
+    assert.equal(elements.cfgModel.value, 'gpt-5');
     assert.equal(elements.cfgThinkingBudget.value, 'medium');
     assert.equal(elements.cfgSearchMode.value, 'openai_web_search_high');
 
@@ -169,7 +169,7 @@ test('config manager keeps provider specific credentials and models when switchi
     elements.cfgProvider.dispatchEvent(new Event('change'));
 
     assert.equal(elements.cfgKey.value, 'openai-key');
-    assert.equal(elements.cfgModel.value, 'gpt-4o-mini');
+    assert.equal(elements.cfgModel.value, 'gpt-5');
     assert.equal(elements.cfgThinkingBudget.value, 'medium');
     assert.equal(elements.cfgSearchMode.value, 'openai_web_search_high');
 
@@ -177,7 +177,7 @@ test('config manager keeps provider specific credentials and models when switchi
     elements.cfgProvider.dispatchEvent(new Event('change'));
 
     assert.equal(elements.cfgKey.value, 'openai-responses-key');
-    assert.equal(elements.cfgModel.value, 'gpt-4o-mini');
+    assert.equal(elements.cfgModel.value, 'gpt-5');
     assert.equal(elements.cfgThinkingBudget.value, 'high');
     assert.equal(elements.cfgSearchMode.value, 'openai_web_search_medium');
 
@@ -192,11 +192,11 @@ test('config manager keeps provider specific credentials and models when switchi
     manager.saveConfig();
     const saved = JSON.parse(storage.getItem('llm_chat_config'));
     assert.equal(saved.provider, 'anthropic');
-    assert.equal(saved.profiles.gemini.model, 'gemini-2.5-pro');
-    assert.equal(saved.profiles.openai.model, 'gpt-4o-mini');
+    assert.equal(saved.profiles.gemini.model, 'gemini-3-pro-preview');
+    assert.equal(saved.profiles.openai.model, 'gpt-5');
     assert.equal(saved.profiles.openai.thinkingBudget, 'medium');
     assert.equal(saved.profiles.openai.searchMode, 'openai_web_search_high');
-    assert.equal(saved.profiles.openai_responses.model, 'gpt-4o-mini');
+    assert.equal(saved.profiles.openai_responses.model, 'gpt-5');
     assert.equal(saved.profiles.openai_responses.thinkingBudget, 'high');
     assert.equal(saved.profiles.openai_responses.searchMode, 'openai_web_search_medium');
     assert.equal(saved.profiles.anthropic.model, 'claude-sonnet-4-5-20250929');

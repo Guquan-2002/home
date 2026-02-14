@@ -1,19 +1,50 @@
-// OpenAI provider client: supports Chat Completions/Responses APIs, retries, and streaming.
+/**
+ * OpenAI Provider 客户端
+ *
+ * 职责：
+ * - 实现 OpenAI Chat Completions 和 Responses API 的完整调用逻辑
+ * - 支持两种 API 模式的统一封装
+ * - 处理请求重试（指数退避算法）
+ * - 支持备用 API 密钥的自动切换
+ * - 解析 SSE 流式响应和非流式响应
+ * - 支持请求取消（AbortSignal）
+ *
+ * 依赖：
+ * - local-message.js（消息封装构建）
+ * - message-model.js（消息分割）
+ * - constants.js（Provider ID）
+ * - format-router.js（请求构建）
+ * - system-instruction.js（系统指令构建）
+ *
+ * 被依赖：chat.js（通过 provider-router）
+ */
 import { buildLocalMessageEnvelope } from '../../core/local-message.js';
 import { splitAssistantMessageByMarker } from '../../core/message-model.js';
 import { CHAT_PROVIDER_IDS } from '../../constants.js';
 import { buildProviderRequest } from '../format-router.js';
 import { buildSystemInstruction } from '../system-instruction.js';
 
+/** OpenAI API 模式枚举 */
 const OPENAI_API_MODES = Object.freeze({
     chatCompletions: 'chat-completions',
     responses: 'responses'
 });
 
+/** 判断 HTTP 状态码是否应该重试 */
 function shouldRetryStatus(statusCode) {
     return statusCode === 408 || statusCode === 429 || statusCode >= 500;
 }
 
+/**
+ * 从内容对象中提取文本
+ *
+ * 支持多种格式：
+ * - 字符串：直接返回
+ * - 数组：提取所有 text/content 字段并合并
+ *
+ * @param {string|Array} content - 内容对象
+ * @returns {string} 提取的文本
+ */
 function extractTextFromContent(content) {
     if (typeof content === 'string') {
         return content;
@@ -43,6 +74,11 @@ function extractTextFromContent(content) {
     return '';
 }
 
+/**
+ * 解析 Chat Completions API 响应中的文本
+ * @param {Object} responseData - API 响应数据
+ * @returns {string} 提取的文本内容
+ */
 function parseOpenAiText(responseData) {
     const choices = Array.isArray(responseData?.choices) ? responseData.choices : [];
     return choices
@@ -51,6 +87,11 @@ function parseOpenAiText(responseData) {
         .join('');
 }
 
+/**
+ * 解析 Chat Completions API 流式响应中的文本增量
+ * @param {Object} responseData - SSE 事件数据
+ * @returns {string} 文本增量
+ */
 function parseOpenAiStreamDelta(responseData) {
     const choices = Array.isArray(responseData?.choices) ? responseData.choices : [];
     return choices
@@ -59,6 +100,16 @@ function parseOpenAiStreamDelta(responseData) {
         .join('');
 }
 
+/**
+ * 解析 Responses API 响应中的文本
+ *
+ * 支持两种格式：
+ * - output_text 字段（简化格式）
+ * - output 数组（完整格式）
+ *
+ * @param {Object} responseData - API 响应数据
+ * @returns {string} 提取的文本内容
+ */
 function parseOpenAiResponseText(responseData) {
     if (typeof responseData?.output_text === 'string' && responseData.output_text) {
         return responseData.output_text;
@@ -91,6 +142,11 @@ function parseOpenAiResponseText(responseData) {
         .join('');
 }
 
+/**
+ * 解析 Responses API 流式响应中的文本增量
+ * @param {Object} responseData - SSE 事件数据
+ * @returns {string} 文本增量
+ */
 function parseOpenAiResponseStreamDelta(responseData) {
     if (typeof responseData?.delta === 'string' && responseData.delta) {
         return responseData.delta;
@@ -99,10 +155,12 @@ function parseOpenAiResponseStreamDelta(responseData) {
     return '';
 }
 
+/** 判断是否为 Responses API 模式 */
 function isResponsesMode(apiMode) {
     return apiMode === OPENAI_API_MODES.responses;
 }
 
+/** 解析请求封装对象（同 Anthropic） */
 function resolveRequestEnvelope(config, contextMessages, localMessageEnvelope, enableMarkerSplit) {
     const normalizedEnvelope = buildLocalMessageEnvelope(
         localMessageEnvelope || { messages: contextMessages },
@@ -117,6 +175,7 @@ function resolveRequestEnvelope(config, contextMessages, localMessageEnvelope, e
     };
 }
 
+/** 读取错误响应的详细信息（同 Anthropic） */
 async function readErrorDetails(response) {
     try {
         const errorPayload = await response.json();
@@ -134,6 +193,7 @@ async function readErrorDetails(response) {
     }
 }
 
+/** 创建 AbortError 错误对象（同 Anthropic） */
 function createAbortError() {
     if (typeof DOMException === 'function') {
         return new DOMException('The operation was aborted.', 'AbortError');
@@ -144,6 +204,7 @@ function createAbortError() {
     return error;
 }
 
+/** 等待重试延迟（同 Anthropic） */
 function waitForRetryDelay(delayMs, signal) {
     if (!Number.isFinite(delayMs) || delayMs <= 0) {
         return Promise.resolve();
@@ -175,6 +236,7 @@ function waitForRetryDelay(delayMs, signal) {
     });
 }
 
+/** 带重试的 Fetch 请求（同 Anthropic） */
 async function fetchWithRetry(fetchImpl, url, options, {
     maxRetries,
     maxRetryDelayMs,
@@ -213,6 +275,7 @@ async function fetchWithRetry(fetchImpl, url, options, {
     throw lastError || new Error('Request failed after retries');
 }
 
+/** 提取 SSE 事件中的 data 字段内容（同 Anthropic） */
 function extractSseDataPayload(rawEvent) {
     const lines = rawEvent.split(/\r?\n/);
     const dataLines = [];
@@ -230,6 +293,16 @@ function extractSseDataPayload(rawEvent) {
     return dataLines.join('\n');
 }
 
+/**
+ * 读取 SSE 流并解析为 JSON 事件
+ *
+ * 与 Anthropic 的区别：
+ * - 支持 [DONE] 标记（遇到时立即结束）
+ *
+ * @param {Response} response - Fetch API 响应对象
+ * @param {AbortSignal} signal - 取消信号
+ * @yields {Object} 解析后的 JSON 事件对象
+ */
 async function* readSseJsonEvents(response, signal) {
     const stream = response?.body;
     if (!stream || typeof stream.getReader !== 'function') {
@@ -282,12 +355,28 @@ async function* readSseJsonEvents(response, signal) {
     }
 }
 
+/** 构建 API 密钥数组（同 Anthropic） */
 function buildApiKeys(config) {
     return [config.apiKey, config.backupApiKey]
         .map((key) => (typeof key === 'string' ? key.trim() : ''))
         .filter(Boolean);
 }
 
+/**
+ * 根据 API 模式创建 OpenAI Provider 实例
+ *
+ * 支持两种模式：
+ * - chat-completions: Chat Completions API
+ * - responses: Responses API
+ *
+ * @param {Object} options - 创建选项
+ * @param {string} options.providerId - Provider ID
+ * @param {string} options.apiMode - API 模式
+ * @param {Function} [options.fetchImpl] - Fetch 实现函数
+ * @param {number} [options.maxRetries=3] - 最大重试次数
+ * @param {number} [options.maxRetryDelayMs=8000] - 最大重试延迟（毫秒）
+ * @returns {ChatProvider} Provider 实例
+ */
 function createOpenAiProviderByMode({
     providerId,
     apiMode,
@@ -309,6 +398,11 @@ function createOpenAiProviderByMode({
 
     return {
         id: providerId,
+        /**
+         * 非流式生成方法
+         *
+         * 根据 apiMode 选择对应的响应解析器
+         */
         async generate({
             config,
             contextMessages,
@@ -393,6 +487,11 @@ function createOpenAiProviderByMode({
             throw lastError || new Error('OpenAI request failed.');
         },
 
+        /**
+         * 流式生成方法
+         *
+         * 根据 apiMode 选择对应的流式响应解析器
+         */
         async *generateStream({
             config,
             contextMessages,
@@ -489,6 +588,11 @@ function createOpenAiProviderByMode({
     };
 }
 
+/**
+ * 创建 OpenAI Chat Completions Provider 实例
+ * @param {Object} options - 创建选项
+ * @returns {ChatProvider} Provider 实例
+ */
 export function createOpenAiProvider(options = {}) {
     return createOpenAiProviderByMode({
         ...options,
@@ -497,6 +601,11 @@ export function createOpenAiProvider(options = {}) {
     });
 }
 
+/**
+ * 创建 OpenAI Responses Provider 实例
+ * @param {Object} options - 创建选项
+ * @returns {ChatProvider} Provider 实例
+ */
 export function createOpenAiResponsesProvider(options = {}) {
     return createOpenAiProviderByMode({
         ...options,

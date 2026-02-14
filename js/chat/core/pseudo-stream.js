@@ -1,8 +1,32 @@
-﻿// Pseudo stream helpers: split full text into incremental chunks for typing-like rendering.
+﻿/**
+ * 伪流式渲染工具
+ *
+ * 职责：
+ * - 将完整文本分割为增量块，模拟打字机效果
+ * - 智能识别句子和子句边界，避免在词语中间断开
+ * - 根据剩余文本长度动态调整块大小
+ * - 根据标点符号类型调整延迟时间（句号延迟更长）
+ * - 支持中断信号（AbortSignal）
+ *
+ * 依赖：无
+ * 被依赖：ui-manager, session-store
+ */
+
+// Pseudo stream helpers: split full text into incremental chunks for typing-like rendering.
+// 句子结束标点（中英文）
 const SENTENCE_PUNCTUATION_REGEX = /[。！？!?]/u;
+// 子句标点（逗号、分号、冒号等）
 const CLAUSE_PUNCTUATION_REGEX = /[，,；;：:]/u;
+// 边界字符（空白符）
 const BOUNDARY_REGEX = /[\s\n\r\t]/u;
 
+/**
+ * 根据剩余文本长度决定块大小
+ * @param {number} remainingLength - 剩余文本长度
+ * @returns {number} 块大小（字符数）
+ *
+ * 策略：文本越长，块越大，加快渲染速度
+ */
 function resolveChunkSize(remainingLength) {
     if (remainingLength <= 24) return 1;
     if (remainingLength <= 80) return 2;
@@ -12,6 +36,19 @@ function resolveChunkSize(remainingLength) {
     return 12;
 }
 
+/**
+ * 查找块的边界位置（避免在词语中间断开）
+ * @param {string} text - 完整文本
+ * @param {number} startIndex - 起始位置
+ * @param {number} targetIndex - 目标位置
+ * @param {number} lookahead - 向前查找的字符数
+ * @returns {number} 边界位置索引
+ *
+ * 查找策略：
+ * 1. 优先在目标位置后查找标点符号（句号、逗号、换行等）
+ * 2. 如果没找到，向前查找空白符
+ * 3. 如果都没找到，使用目标位置
+ */
 function findChunkBoundary(text, startIndex, targetIndex, lookahead) {
     const safeTargetIndex = Math.min(text.length, Math.max(startIndex + 1, targetIndex));
     const searchEnd = Math.min(text.length, safeTargetIndex + lookahead);
@@ -32,6 +69,18 @@ function findChunkBoundary(text, startIndex, targetIndex, lookahead) {
     return safeTargetIndex;
 }
 
+/**
+ * 将文本分割为伪流式块
+ * @param {string} text - 完整文本
+ * @param {Object} options - 选项
+ * @param {number} options.lookahead - 向前查找边界的字符数（默认 8）
+ * @returns {Array<string>} 文本块数组
+ *
+ * 算法：
+ * 1. 根据剩余长度动态调整块大小
+ * 2. 在合适的边界位置切分文本
+ * 3. 避免在词语中间断开
+ */
 export function buildPseudoStreamChunks(text, {
     lookahead = 8
 } = {}) {
@@ -61,6 +110,17 @@ export function buildPseudoStreamChunks(text, {
     return chunks;
 }
 
+/**
+ * 根据块内容决定延迟时间
+ * @param {string} chunk - 文本块
+ * @param {number} baseDelayMs - 基础延迟时间（毫秒）
+ * @returns {number} 实际延迟时间（毫秒）
+ *
+ * 策略：
+ * - 句子结束标点：基础延迟 + 35ms
+ * - 子句标点或换行：基础延迟 + 20ms
+ * - 其他：基础延迟
+ */
 function resolveChunkDelayMs(chunk, baseDelayMs) {
     const trimmed = chunk.trimEnd();
     if (!trimmed) {
@@ -79,6 +139,12 @@ function resolveChunkDelayMs(chunk, baseDelayMs) {
     return baseDelayMs;
 }
 
+/**
+ * 等待指定的延迟时间（支持中断）
+ * @param {number} delayMs - 延迟时间（毫秒）
+ * @param {AbortSignal} signal - 中断信号
+ * @returns {Promise<boolean>} 是否应该继续（false 表示被中断）
+ */
 async function waitForChunkDelay(delayMs, signal) {
     if (!Number.isFinite(delayMs) || delayMs <= 0) {
         return !signal?.aborted;
@@ -110,6 +176,23 @@ async function waitForChunkDelay(delayMs, signal) {
     });
 }
 
+/**
+ * 运行伪流式渲染
+ * @param {Object} options - 选项
+ * @param {string} options.text - 要渲染的完整文本
+ * @param {AbortSignal} options.signal - 中断信号（可选）
+ * @param {number} options.baseDelayMs - 基础延迟时间（默认 20ms）
+ * @param {number} options.lookahead - 边界查找范围（默认 8）
+ * @param {Function} options.onProgress - 进度回调函数 (renderedText, chunk) => void
+ * @returns {Promise<Object>} 渲染结果
+ *
+ * 返回格式：
+ * {
+ *   renderedText: string,   // 已渲染的文本
+ *   interrupted: boolean,   // 是否被中断
+ *   chunkCount: number      // 总块数
+ * }
+ */
 export async function runPseudoStream({
     text,
     signal = null,

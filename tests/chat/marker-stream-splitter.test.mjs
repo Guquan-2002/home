@@ -41,3 +41,16 @@ test('marker splitter can discard remainder', () => {
 
     assert.equal(splitter.flush(), '');
 });
+
+test('marker splitter drops stray leading sentence punctuation', () => {
+    const splitter = createMarkerStreamSplitter({
+        markers: [ASSISTANT_SEGMENT_MARKER, ASSISTANT_SENTENCE_MARKER]
+    });
+
+    const completed = splitter.push(
+        `first${ASSISTANT_SENTENCE_MARKER}\u3002second${ASSISTANT_SENTENCE_MARKER}`
+    );
+
+    assert.deepEqual(completed, ['first', 'second']);
+    assert.equal(splitter.flush(), '');
+});
