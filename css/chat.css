@@ -83,6 +83,42 @@
     font-weight: 600;
 }
 
+#chat-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+#chat-page-link {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-color);
+    opacity: 0.7;
+    text-decoration: none;
+    transition: opacity 0.2s, background 0.2s;
+}
+
+#chat-page-link:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+#chat-page-link:focus-visible {
+    outline: none;
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 0 0 2px rgba(100, 140, 255, 0.35);
+}
+
+body.chat-page #chat-page-link {
+    display: none;
+}
+
 #chat-header-actions {
     display: flex;
     gap: 6px;
@@ -694,6 +730,8 @@
     margin-top: 4px;
     opacity: 0.85;
     font-size: 0.76rem;
+    white-space: pre-line;
+    word-break: break-word;
 }
 
 .chat-msg.error .chat-error-action {
@@ -1095,6 +1133,12 @@
         font-size: 1.1rem;
     }
 
+    #chat-page-link {
+        width: 36px;
+        height: 36px;
+        font-size: 0.95rem;
+    }
+
     #chat-header-actions button {
         padding: 6px 10px;
         font-size: 1rem;
@@ -1222,6 +1266,12 @@
 
     #chat-title {
         font-size: 1rem;
+    }
+
+    #chat-page-link {
+        width: 34px;
+        height: 34px;
+        font-size: 0.9rem;
     }
 
     #chat-header-actions button {

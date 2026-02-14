@@ -23,8 +23,9 @@
 
 /**
  * Provider 流式事件类型定义
- * @typedef {{type: 'text-delta', text: string} | {type: 'fallback-key'} | {type: 'done'}} ProviderStreamEvent
+ * @typedef {{type: 'text-delta', text: string} | {type: 'ping'} | {type: 'fallback-key'} | {type: 'done'}} ProviderStreamEvent
  * - text-delta: 文本增量事件（包含新增的文本片段）
+ * - ping: 非文本 SSE 事件的心跳信号（如工具调用进度），用于保持连接超时计时器重置
  * - fallback-key: 备用密钥切换事件
  * - done: 流式响应完成事件
  */

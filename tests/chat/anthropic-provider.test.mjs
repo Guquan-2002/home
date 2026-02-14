@@ -201,6 +201,7 @@ test('anthropic provider maps thinking effort and web search format', async () =
         type: 'web_search_20250305',
         name: 'web_search'
     }]);
+    assert.deepEqual(Object.keys(requestBody.tools[0]).sort(), ['name', 'type']);
     assert.equal(typeof requestBody.system, 'string');
     assert.ok(requestBody.system.includes('You are a helpful assistant.'));
     assert.equal(requestBody.messages[0].role, 'user');
@@ -208,6 +209,31 @@ test('anthropic provider maps thinking effort and web search format', async () =
         type: 'text',
         text: 'hello'
     }]);
+});
+
+test('anthropic provider omits web search tools when search mode is disabled', async () => {
+    let requestBody = null;
+    const fetchMock = async (_url, options) => {
+        requestBody = JSON.parse(options.body);
+        return new Response(JSON.stringify({
+            content: [{ type: 'text', text: 'ok' }]
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    };
+
+    const provider = createAnthropicProvider({ fetchImpl: fetchMock, maxRetries: 0 });
+    await provider.generate({
+        config: createAnthropicConfig({
+            backupApiKey: '',
+            searchMode: ''
+        }),
+        contextMessages,
+        signal: new AbortController().signal
+    });
+
+    assert.equal(requestBody.tools, undefined);
 });
 
 test('anthropic provider omits thinking when effort is none', async () => {

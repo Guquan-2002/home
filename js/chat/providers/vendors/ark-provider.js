@@ -389,9 +389,12 @@ export function createArkProvider({
                         throw new Error(`HTTP ${response.status}: ${details}`);
                     }
 
+                    yield { type: 'ping' }; //此处随OPENAI的Responses一起修改，但本API并未出现过类似问题，先保留ping事件以防万一
+
                     for await (const payload of readSseJsonEvents(response, signal)) {
                         const deltaText = parseArkResponseStreamDelta(payload);
                         if (!deltaText) {
+                            yield { type: 'ping' }; //此处随OPENAI的Responses一起修改，但本API并未出现过类似问题，先保留ping事件以防万一
                             continue;
                         }
 

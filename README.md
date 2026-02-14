@@ -33,6 +33,8 @@
 
 在浏览器中打开 `index.html` 即可。
 
+独立聊天页入口：`pages/chat.html`（与首页聊天共享同一份本地会话与配置数据）。
+
 ### 本地服务
 
 ```bash
@@ -121,15 +123,19 @@ chat/
 ```
 home/
 ├── index.html
+├── pages/
+│   └── chat.html
 ├── css/
 │   ├── variables.css
 │   ├── base.css
 │   ├── animations.css
 │   ├── components.css
 │   ├── chat.css
+│   ├── chat-page.css
 │   └── mobile.css
 ├── js/
 │   ├── main.js
+│   ├── chat-page.js
 │   ├── config.js
 │   ├── utils.js
 │   ├── time.js

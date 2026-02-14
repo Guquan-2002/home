@@ -115,7 +115,7 @@ test('config manager keeps provider specific credentials and models when switchi
     elements.cfgKey.value = 'openai-key';
     elements.cfgModel.value = 'gpt-5';
     elements.cfgThinkingLevel.value = 'medium';
-    elements.cfgSearchMode.value = 'openai_web_search_high';
+    elements.cfgSearchMode.value = 'openai_web_search';
 
     elements.cfgProvider.value = 'openai_responses';
     elements.cfgProvider.dispatchEvent(new Event('change'));
@@ -127,7 +127,7 @@ test('config manager keeps provider specific credentials and models when switchi
     elements.cfgKey.value = 'openai-responses-key';
     elements.cfgModel.value = 'gpt-5';
     elements.cfgThinkingLevel.value = 'high';
-    elements.cfgSearchMode.value = 'openai_web_search_medium';
+    elements.cfgSearchMode.value = 'openai_web_search';
 
     elements.cfgProvider.value = 'ark_responses';
     elements.cfgProvider.dispatchEvent(new Event('change'));
@@ -167,7 +167,7 @@ test('config manager keeps provider specific credentials and models when switchi
     assert.equal(elements.cfgKey.value, 'openai-key');
     assert.equal(elements.cfgModel.value, 'gpt-5');
     assert.equal(elements.cfgThinkingLevel.value, 'medium');
-    assert.equal(elements.cfgSearchMode.value, 'openai_web_search_high');
+    assert.equal(elements.cfgSearchMode.value, 'openai_web_search');
 
     elements.cfgProvider.value = 'anthropic';
     elements.cfgProvider.dispatchEvent(new Event('change'));
@@ -183,7 +183,7 @@ test('config manager keeps provider specific credentials and models when switchi
     assert.equal(elements.cfgKey.value, 'openai-key');
     assert.equal(elements.cfgModel.value, 'gpt-5');
     assert.equal(elements.cfgThinkingLevel.value, 'medium');
-    assert.equal(elements.cfgSearchMode.value, 'openai_web_search_high');
+    assert.equal(elements.cfgSearchMode.value, 'openai_web_search');
 
     elements.cfgProvider.value = 'openai_responses';
     elements.cfgProvider.dispatchEvent(new Event('change'));
@@ -191,7 +191,7 @@ test('config manager keeps provider specific credentials and models when switchi
     assert.equal(elements.cfgKey.value, 'openai-responses-key');
     assert.equal(elements.cfgModel.value, 'gpt-5');
     assert.equal(elements.cfgThinkingLevel.value, 'high');
-    assert.equal(elements.cfgSearchMode.value, 'openai_web_search_medium');
+    assert.equal(elements.cfgSearchMode.value, 'openai_web_search');
 
     elements.cfgProvider.value = 'ark_responses';
     elements.cfgProvider.dispatchEvent(new Event('change'));
@@ -216,10 +216,10 @@ test('config manager keeps provider specific credentials and models when switchi
     assert.equal(saved.profiles.gemini.thinkingLevel, 'high');
     assert.equal(saved.profiles.openai.model, 'gpt-5');
     assert.equal(saved.profiles.openai.thinkingBudget, 'medium');
-    assert.equal(saved.profiles.openai.searchMode, 'openai_web_search_high');
+    assert.equal(saved.profiles.openai.searchMode, 'openai_web_search');
     assert.equal(saved.profiles.openai_responses.model, 'gpt-5');
     assert.equal(saved.profiles.openai_responses.thinkingBudget, 'high');
-    assert.equal(saved.profiles.openai_responses.searchMode, 'openai_web_search_medium');
+    assert.equal(saved.profiles.openai_responses.searchMode, 'openai_web_search');
     assert.equal(saved.profiles.ark_responses.model, 'doubao-seed-2-0-pro-260215');
     assert.equal(saved.profiles.ark_responses.thinkingBudget, 'medium');
     assert.equal(saved.profiles.ark_responses.searchMode, 'ark_web_search');
@@ -254,6 +254,42 @@ test('config manager clears legacy Gemini thinkingBudget during migration', () =
     const saved = JSON.parse(storage.getItem('llm_chat_config'));
     assert.equal(saved.profiles.gemini.thinkingLevel, null);
     assert.equal(saved.profiles.gemini.thinkingBudget, undefined);
+});
+
+test('config manager migrates legacy OpenAI web search levels to single mode', () => {
+    const storage = createMemoryStorage();
+    globalThis.localStorage = storage;
+    storage.setItem('llm_chat_config', JSON.stringify({
+        provider: 'openai',
+        profiles: {
+            openai: {
+                apiUrl: 'https://api.openai.com/v1',
+                model: 'gpt-5',
+                searchMode: 'openai_web_search_high'
+            },
+            openai_responses: {
+                apiUrl: 'https://api.openai.com/v1',
+                model: 'gpt-5',
+                searchMode: 'openai_web_search_medium'
+            }
+        }
+    }));
+
+    const elements = createElements();
+    const manager = createConfigManager(elements, 'llm_chat_config');
+    manager.loadConfig();
+
+    assert.equal(elements.cfgProvider.value, 'openai');
+    assert.equal(elements.cfgSearchMode.value, 'openai_web_search');
+
+    elements.cfgProvider.value = 'openai_responses';
+    elements.cfgProvider.dispatchEvent(new Event('change'));
+    assert.equal(elements.cfgSearchMode.value, 'openai_web_search');
+
+    manager.saveConfig();
+    const saved = JSON.parse(storage.getItem('llm_chat_config'));
+    assert.equal(saved.profiles.openai.searchMode, 'openai_web_search');
+    assert.equal(saved.profiles.openai_responses.searchMode, 'openai_web_search');
 });
 
 test('config manager clears legacy Anthropic thinkingBudget during migration', () => {

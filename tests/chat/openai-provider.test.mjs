@@ -41,6 +41,15 @@ async function collectDeltas(stream) {
     return deltas;
 }
 
+async function collectEvents(stream) {
+    const events = [];
+    for await (const event of stream) {
+        events.push(event);
+    }
+
+    return events;
+}
+
 test('openai provider falls back to backup key when primary key fails', async () => {
     const apiKeys = [];
     const fetchMock = async (_url, options) => {
@@ -145,7 +154,7 @@ test('openai provider stream yields text deltas from SSE', async () => {
     assert.equal(deltas.join(''), 'Hello world');
 });
 
-test('openai provider maps reasoning effort and web search format', async () => {
+test('openai provider maps reasoning effort and basic web search format', async () => {
     let requestBody = null;
     const fetchMock = async (_url, options) => {
         requestBody = JSON.parse(options.body);
@@ -162,16 +171,14 @@ test('openai provider maps reasoning effort and web search format', async () => 
         config: createOpenAiConfig({
             backupApiKey: '',
             thinkingBudget: 'high',
-            searchMode: 'openai_web_search_medium'
+            searchMode: 'openai_web_search'
         }),
         contextMessages,
         signal: new AbortController().signal
     });
 
     assert.equal(requestBody.reasoning_effort, 'high');
-    assert.deepEqual(requestBody.web_search_options, {
-        search_context_size: 'medium'
-    });
+    assert.deepEqual(requestBody.web_search_options, {});
 });
 
 test('openai provider stream does not switch to backup key after first delta', async () => {
@@ -378,5 +385,79 @@ test('openai responses provider appends responses path by default', async () => 
 
     assert.equal(requestUrl, 'https://api.openai.com/v1/responses');
     assert.deepEqual(result.segments, ['auto endpoint']);
+});
+
+test('openai responses stream yields ping events for non-text SSE events (web_search)', async () => {
+    const encoder = new TextEncoder();
+    const streamBody = new ReadableStream({
+        start(controller) {
+            controller.enqueue(encoder.encode(
+                toSseEvent({ type: 'response.created', response: { id: 'resp_1' } })
+                + toSseEvent({ type: 'response.in_progress' })
+                + toSseEvent({ type: 'response.output_item.added', item: { type: 'web_search_call' } })
+                + toSseEvent({ type: 'response.web_search_call.in_progress' })
+                + toSseEvent({ type: 'response.web_search_call.completed' })
+                + toSseEvent({ type: 'response.output_text.delta', delta: 'Search result: ' })
+                + toSseEvent({ type: 'response.output_text.delta', delta: 'found it' })
+                + toDoneEvent()
+            ));
+            controller.close();
+        }
+    });
+
+    const fetchMock = async () => new Response(streamBody, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' }
+    });
+
+    const provider = createOpenAiResponsesProvider({ fetchImpl: fetchMock, maxRetries: 0 });
+    const events = await collectEvents(provider.generateStream({
+        config: createOpenAiConfig({ backupApiKey: '' }),
+        contextMessages,
+        signal: new AbortController().signal
+    }));
+
+    const pingEvents = events.filter((e) => e.type === 'ping');
+    // 1 ping from HTTP 200 + at least 4 pings from non-text SSE events
+    assert.ok(pingEvents.length >= 5, `Expected at least 5 ping events, got ${pingEvents.length}`);
+
+    const deltas = events.filter((e) => e.type === 'text-delta').map((e) => e.text);
+    assert.equal(deltas.join(''), 'Search result: found it');
+
+    const doneEvents = events.filter((e) => e.type === 'done');
+    assert.equal(doneEvents.length, 1);
+});
+
+test('openai chat completions stream yields ping for empty delta chunks', async () => {
+    const encoder = new TextEncoder();
+    const streamBody = new ReadableStream({
+        start(controller) {
+            controller.enqueue(encoder.encode(
+                toSseEvent({ choices: [{ delta: { role: 'assistant' } }] })
+                + toSseEvent({ choices: [{ delta: { content: 'hello' } }] })
+                + toDoneEvent()
+            ));
+            controller.close();
+        }
+    });
+
+    const fetchMock = async () => new Response(streamBody, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' }
+    });
+
+    const provider = createOpenAiProvider({ fetchImpl: fetchMock, maxRetries: 0 });
+    const events = await collectEvents(provider.generateStream({
+        config: createOpenAiConfig({ backupApiKey: '' }),
+        contextMessages,
+        signal: new AbortController().signal
+    }));
+
+    const pingEvents = events.filter((e) => e.type === 'ping');
+    // 1 ping from HTTP 200 connection established + 1 ping from role-only delta
+    assert.equal(pingEvents.length, 2);
+
+    const deltas = events.filter((e) => e.type === 'text-delta').map((e) => e.text);
+    assert.equal(deltas.join(''), 'hello');
 });
 

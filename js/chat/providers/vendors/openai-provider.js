@@ -551,11 +551,16 @@ function createOpenAiProviderByMode({
                         throw new Error(`HTTP ${response.status}: ${details}`);
                     }
 
+                    // HTTP 200 已返回，连接已建立。立即通知上层清除连接超时，
+                    // 避免模型长时间思考（如 high reasoning）期间被误判为超时。
+                    yield { type: 'ping' };
+
                     for await (const payload of readSseJsonEvents(response, signal)) {
                         const deltaText = isResponsesMode(apiMode)
                             ? parseOpenAiResponseStreamDelta(payload)
                             : parseOpenAiStreamDelta(payload);
                         if (!deltaText) {
+                            yield { type: 'ping' };
                             continue;
                         }
 

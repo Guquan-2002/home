@@ -26,6 +26,79 @@ const CONTEXT_DEBUG_STORAGE_KEY = 'llm_chat_context_debug';
 const CONTEXT_MAX_MESSAGES_STORAGE_KEY = 'llm_chat_context_max_messages';
 const CONTEXT_DEBUG_PREVIEW_CHARS = 80;
 
+function asTrimmedString(value) {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeApiUrl(apiUrl) {
+    const trimmed = asTrimmedString(apiUrl).replace(/\/+$/, '');
+    return trimmed || '';
+}
+
+function appendEndpointPath(baseUrl, pathSuffix) {
+    if (!baseUrl) {
+        return '(missing apiUrl)';
+    }
+
+    return baseUrl.endsWith(pathSuffix) ? baseUrl : `${baseUrl}${pathSuffix}`;
+}
+
+function resolveRequestEndpoint(config, useStreaming) {
+    const providerId = asTrimmedString(config?.provider);
+    const baseUrl = normalizeApiUrl(config?.apiUrl);
+
+    if (providerId === 'openai') {
+        return appendEndpointPath(baseUrl, '/chat/completions');
+    }
+
+    if (providerId === 'openai_responses' || providerId === 'ark_responses') {
+        return appendEndpointPath(baseUrl, '/responses');
+    }
+
+    if (providerId === 'anthropic') {
+        return appendEndpointPath(baseUrl, '/messages');
+    }
+
+    if (providerId === 'gemini') {
+        const model = asTrimmedString(config?.model);
+        if (!baseUrl || !model) {
+            return baseUrl || '(missing apiUrl)';
+        }
+
+        const endpointSuffix = useStreaming
+            ? `:streamGenerateContent?alt=sse`
+            : ':generateContent';
+        return `${baseUrl}/models/${encodeURIComponent(model)}${endpointSuffix}`;
+    }
+
+    return baseUrl || '(unknown endpoint)';
+}
+
+function buildRequestDiagnosticDetail(config, {
+    endpoint = '',
+    useStreaming = false,
+    timeoutMs = 30000,
+    errorDetail = ''
+} = {}) {
+    const providerId = asTrimmedString(config?.provider) || '(unknown)';
+    const searchMode = asTrimmedString(config?.searchMode) || '(disabled)';
+    const resolvedEndpoint = endpoint || resolveRequestEndpoint(config, useStreaming);
+    const details = [
+        `Provider=${providerId}`,
+        `Endpoint=${resolvedEndpoint}`,
+        `SearchMode=${searchMode}`,
+        `Streaming=${useStreaming ? 'true' : 'false'}`,
+        `TimeoutMs=${timeoutMs}`
+    ];
+
+    const normalizedError = asTrimmedString(errorDetail);
+    if (normalizedError) {
+        details.push(`Error=${normalizedError}`);
+    }
+
+    return details.join(' | ');
+}
+
 /**
  * 检查是否启用上下文调试
  *
@@ -75,6 +148,12 @@ function resolveContextMaxMessages(defaultValue) {
     }
 
     return normalizeMaxContextMessages(defaultValue);
+}
+
+function resolveConnectTimeoutMs(defaultTimeoutMs) {
+    return Number.isFinite(defaultTimeoutMs) && defaultTimeoutMs > 0
+        ? defaultTimeoutMs
+        : 30000;
 }
 
 /**
@@ -375,6 +454,9 @@ export function createApiManager({
     async function generateAssistantResponse(config, turnId, failedInputText) {
         const requestSessionId = store.getActiveSessionId();
         const effectiveMaxContextMessages = resolveContextMaxMessages(maxContextMessages);
+        const shouldUseStreaming = config.enablePseudoStream
+            && typeof providerClient.generateStream === 'function';
+        const requestConnectTimeoutMs = resolveConnectTimeoutMs(connectTimeoutMs);
         const contextWindow = buildLocalMessageEnvelope(
             store.getActiveMessages(),
             config,
@@ -400,7 +482,7 @@ export function createApiManager({
 
             store.setAbortReason('connect_timeout');
             abortController.abort();
-        }, connectTimeoutMs);
+        }, requestConnectTimeoutMs);
 
         let timeoutCleared = false;
         const clearConnectionTimeout = () => {
@@ -416,8 +498,12 @@ export function createApiManager({
             splitter: null,
             persistedSegmentCount: 0
         };
+        let activeRequestEndpoint = '';
+        let activeRequestUsesStreaming = false;
 
         const consumeNonStreamingResponse = async () => {
+            activeRequestEndpoint = resolveRequestEndpoint(config, false);
+            activeRequestUsesStreaming = false;
             const response = await providerClient.generate({
                 config,
                 contextMessages: contextWindow.messages,
@@ -457,6 +543,8 @@ export function createApiManager({
         };
 
         const consumeStreamingResponse = async () => {
+            activeRequestEndpoint = resolveRequestEndpoint(config, true);
+            activeRequestUsesStreaming = true;
             streamState.splitter = createMarkerStreamSplitter({
                 markers: [ASSISTANT_SEGMENT_MARKER, ASSISTANT_SENTENCE_MARKER]
             });
@@ -481,12 +569,13 @@ export function createApiManager({
                     return;
                 }
 
+                // Any SSE event means the connection is established; avoid false timeout on tool events.
+                clearConnectionTimeout();
+                loadingMessage.remove();
+
                 if (event?.type !== 'text-delta' || typeof event?.text !== 'string' || !event.text) {
                     continue;
                 }
-
-                clearConnectionTimeout();
-                loadingMessage.remove();
 
                 const completedSegments = streamState.splitter.push(event.text);
                 for (const segment of completedSegments) {
@@ -509,9 +598,6 @@ export function createApiManager({
                 }
             }
         };
-
-        const shouldUseStreaming = config.enablePseudoStream
-            && typeof providerClient.generateStream === 'function';
 
         try {
             if (shouldUseStreaming) {
@@ -546,7 +632,13 @@ export function createApiManager({
                 loadingMessage.remove();
 
                 if (abortReason === 'connect_timeout') {
-                    showFailureMessage('Connection timeout', 'Check network status and API URL.', failedInputText);
+                    const detail = buildRequestDiagnosticDetail(config, {
+                        endpoint: activeRequestEndpoint,
+                        useStreaming: activeRequestUsesStreaming,
+                        timeoutMs: requestConnectTimeoutMs,
+                        errorDetail: 'Connection timed out before the first response chunk.'
+                    });
+                    showFailureMessage('Connection timeout', detail, failedInputText);
                 } else if (abortReason === 'user') {
                     if (shouldUseStreaming) {
                         streamState.splitter?.discardRemainder();
@@ -557,7 +649,13 @@ export function createApiManager({
                 }
             } else {
                 loadingMessage.remove();
-                showFailureMessage('Request failed', error?.message || 'Unknown error', failedInputText);
+                const detail = buildRequestDiagnosticDetail(config, {
+                    endpoint: activeRequestEndpoint,
+                    useStreaming: activeRequestUsesStreaming,
+                    timeoutMs: requestConnectTimeoutMs,
+                    errorDetail: error?.message || 'Unknown error'
+                });
+                showFailureMessage('Request failed', detail, failedInputText);
             }
         } finally {
             if (!timeoutCleared) {

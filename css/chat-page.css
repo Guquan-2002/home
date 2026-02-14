@@ -1,0 +1,68 @@
+/* Standalone chat page overrides */
+body.chat-page {
+    min-height: 100dvh;
+    overflow: hidden;
+    background: #0f172a;
+    animation: none;
+    text-shadow: none;
+}
+
+body.chat-page::before {
+    display: none;
+}
+
+body.chat-page #chat-toggle {
+    display: none !important;
+}
+
+body.chat-page #chat-panel {
+    inset: 0;
+    width: 100%;
+    height: 100dvh;
+    border-left: none;
+    background: #111827;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+    transform: none;
+    visibility: visible;
+}
+
+body.chat-page #chat-panel.chat-hidden {
+    transform: none;
+    visibility: visible;
+    pointer-events: auto;
+    transition: none;
+}
+
+body.chat-page #chat-close-btn {
+    display: none;
+}
+
+body.chat-page #chat-header,
+body.chat-page #chat-history,
+body.chat-page #chat-input-area {
+    background: #111827;
+}
+
+body.chat-page #chat-header {
+    border-bottom-color: rgba(148, 163, 184, 0.25);
+}
+
+body.chat-page #chat-history {
+    border-bottom-color: rgba(148, 163, 184, 0.2);
+}
+
+body.chat-page #chat-messages {
+    background: #0f172a;
+}
+
+body.chat-page #chat-input-area {
+    border-top-color: rgba(148, 163, 184, 0.25);
+}
+
+@supports (-webkit-touch-callout: none) {
+    body.chat-page #chat-panel {
+        height: -webkit-fill-available;
+    }
+}

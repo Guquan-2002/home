@@ -303,3 +303,93 @@ test('text + image message keeps single text part with prefixed content', async 
         globalThis.FileReader = originalFileReader;
     }
 });
+
+test('openai web search uses streaming path with ping events clearing timeout', async () => {
+    const chatInput = createChatInput();
+    const store = createStore();
+    let generateCount = 0;
+    let generateStreamCount = 0;
+    const provider = {
+        id: 'mock-provider',
+        async generate() {
+            generateCount += 1;
+            return { segments: ['ok'] };
+        },
+        async *generateStream() {
+            generateStreamCount += 1;
+            yield { type: 'ping' };
+            yield { type: 'text-delta', text: 'stream' };
+            yield { type: 'done' };
+        }
+    };
+
+    const manager = createApiManager({
+        store,
+        elements: createElements(chatInput),
+        ui: createUi(),
+        configManager: {
+            getConfig() {
+                return createConfig({
+                    provider: 'openai_responses',
+                    searchMode: 'openai_web_search',
+                    enablePseudoStream: true
+                });
+            }
+        },
+        provider,
+        constants: { connectTimeoutMs: 500, maxContextTokens: 200000, maxContextMessages: 120 }
+    });
+
+    chatInput.value = 'search today gold price';
+    await manager.sendMessage();
+
+    assert.equal(generateCount, 0);
+    assert.equal(generateStreamCount, 1);
+});
+
+test('request failure includes provider diagnostics in error detail', async () => {
+    const chatInput = createChatInput();
+    const store = createStore();
+    const errorPayloads = [];
+    const provider = {
+        id: 'mock-provider',
+        async generate() {
+            throw new Error('HTTP 400: Invalid web_search request');
+        }
+    };
+
+    const ui = createUi();
+    ui.addErrorMessage = (payload) => {
+        errorPayloads.push(payload);
+    };
+
+    const manager = createApiManager({
+        store,
+        elements: createElements(chatInput),
+        ui,
+        configManager: {
+            getConfig() {
+                return createConfig({
+                    provider: 'openai_responses',
+                    apiUrl: 'https://api.openai.com/v1',
+                    searchMode: 'openai_web_search',
+                    enablePseudoStream: false
+                });
+            }
+        },
+        provider,
+        constants: { connectTimeoutMs: 500, maxContextTokens: 200000, maxContextMessages: 120 }
+    });
+
+    chatInput.value = 'check gold price';
+    await manager.sendMessage();
+
+    assert.equal(errorPayloads.length, 1);
+    const detail = errorPayloads[0].detail || '';
+    assert.equal(errorPayloads[0].title, 'Request failed');
+    assert.equal(detail.includes('Provider=openai_responses'), true);
+    assert.equal(detail.includes('Endpoint=https://api.openai.com/v1/responses'), true);
+    assert.equal(detail.includes('SearchMode=openai_web_search'), true);
+    assert.equal(detail.includes('TimeoutMs=500'), true);
+    assert.equal(detail.includes('Error=HTTP 400: Invalid web_search request'), true);
+});

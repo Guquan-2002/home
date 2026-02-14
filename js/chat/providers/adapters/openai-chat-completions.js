@@ -183,11 +183,11 @@ export function buildOpenAiChatCompletionsRequest({
     }
 
     // 添加 Web Search 配置
-    if (typeof config?.searchMode === 'string' && config.searchMode.startsWith('openai_web_search_')) {
-        const contextSize = config.searchMode.replace('openai_web_search_', '');
-        body.web_search_options = {
-            search_context_size: contextSize
-        };
+    if (
+        typeof config?.searchMode === 'string'
+        && (config.searchMode === 'openai_web_search' || config.searchMode.startsWith('openai_web_search_'))
+    ) {
+        body.web_search_options = {};
     }
 
     return {

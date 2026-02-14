@@ -25,7 +25,7 @@ test('format router builds OpenAI chat completions request for text+image messag
             apiUrl: 'https://api.openai.com/v1',
             model: 'gpt-4o-mini',
             thinkingBudget: 'high',
-            searchMode: 'openai_web_search_medium'
+            searchMode: 'openai_web_search'
         }),
         envelope: {
             systemInstruction: 'You are helpful.',
@@ -51,7 +51,7 @@ test('format router builds OpenAI chat completions request for text+image messag
     assert.equal(request.endpoint, 'https://api.openai.com/v1/chat/completions');
     assert.equal(request.headers.Authorization, 'Bearer sk-test');
     assert.equal(request.body.reasoning_effort, 'high');
-    assert.deepEqual(request.body.web_search_options, { search_context_size: 'medium' });
+    assert.deepEqual(request.body.web_search_options, {});
     assert.equal(request.body.messages[0].role, 'system');
     assert.deepEqual(request.body.messages[1].content, [
         { type: 'text', text: 'describe this image' },
@@ -71,7 +71,8 @@ test('format router builds OpenAI responses request with input_text + input_imag
         config: createBaseConfig({
             provider: CHAT_PROVIDER_IDS.openaiResponses,
             apiUrl: 'https://api.openai.com/v1',
-            model: 'gpt-4o-mini'
+            model: 'gpt-4o-mini',
+            searchMode: 'openai_web_search'
         }),
         envelope: {
             systemInstruction: 'System prompt',
@@ -96,6 +97,7 @@ test('format router builds OpenAI responses request with input_text + input_imag
     assert.equal(request.endpoint, 'https://api.openai.com/v1/responses');
     assert.equal(request.body.stream, true);
     assert.equal(request.body.instructions, 'System prompt');
+    assert.deepEqual(request.body.tools, [{ type: 'web_search' }]);
     assert.deepEqual(request.body.input[0], {
         type: 'message',
         role: 'user',
@@ -269,6 +271,7 @@ test('format router builds Anthropic request with top-level system and base64 im
         type: 'web_search_20250305',
         name: 'web_search'
     }]);
+    assert.deepEqual(Object.keys(request.body.tools[0]).sort(), ['name', 'type']);
     assert.deepEqual(request.body.messages[0].content[0], {
         type: 'image',
         source: {
@@ -300,6 +303,7 @@ test('format router omits Anthropic thinking when effort is none', () => {
 
     assert.equal(request.body.thinking, undefined);
     assert.equal(request.body.output_config, undefined);
+    assert.equal(request.body.tools, undefined);
 });
 
 test('format router builds Gemini request with inline_data and file_data parts', () => {

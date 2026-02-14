@@ -31,9 +31,7 @@ const ANTHROPIC_SEARCH_MODES = new Set(['', 'anthropic_web_search']);
 const ARK_SEARCH_MODES = new Set(['', 'ark_web_search']);
 const OPENAI_SEARCH_MODES = new Set([
     '',
-    'openai_web_search_low',
-    'openai_web_search_medium',
-    'openai_web_search_high'
+    'openai_web_search'
 ]);
 
 /**
@@ -164,6 +162,12 @@ function normalizeSearchMode(provider, rawValue) {
     const normalized = typeof rawValue === 'string' ? rawValue.trim() : '';
 
     if (isOpenAiProvider(provider)) {
+        if (normalized === 'openai_web_search_low'
+            || normalized === 'openai_web_search_medium'
+            || normalized === 'openai_web_search_high') {
+            return 'openai_web_search';
+        }
+
         return OPENAI_SEARCH_MODES.has(normalized) ? normalized : '';
     }
 
@@ -417,6 +421,7 @@ export function createConfigManager(elements, storageKey) {
         cfgModel,
         cfgPrompt,
         cfgThinkingLevel,
+        cfgThinkingCustom,
         cfgSearchMode,
         cfgEnablePseudoStream,
         cfgEnableDraftAutosave,
@@ -436,7 +441,14 @@ export function createConfigManager(elements, storageKey) {
      */
     function readProviderFields(provider) {
         syncThinkingInputType(cfgThinkingLevel, provider);
-        const thinkingValue = parseThinkingInput(provider, cfgThinkingLevel.value);
+
+        // Read thinking value from select or custom input
+        let thinkingRawValue = cfgThinkingLevel.value;
+        if (thinkingRawValue === '__custom__' && cfgThinkingCustom) {
+            thinkingRawValue = cfgThinkingCustom.value;
+        }
+
+        const thinkingValue = parseThinkingInput(provider, thinkingRawValue);
         const thinkingFields = isGeminiProvider(provider)
             ? { thinkingLevel: thinkingValue }
             : isAnthropicProvider(provider)
@@ -467,7 +479,8 @@ export function createConfigManager(elements, storageKey) {
         cfgBackupKey.value = profile.backupApiKey;
         cfgModel.value = profile.model;
         syncThinkingInputType(cfgThinkingLevel, provider);
-        cfgThinkingLevel.value = formatThinkingValue(
+
+        const thinkingValue = formatThinkingValue(
             provider,
             isGeminiProvider(provider)
                 ? profile.thinkingLevel
@@ -475,6 +488,30 @@ export function createConfigManager(elements, storageKey) {
                     ? profile.thinkingEffort
                     : profile.thinkingBudget
         );
+
+        // Check if value exists in select options
+        const optionExists = Array.from(cfgThinkingLevel.options || []).some(
+            opt => opt.value === thinkingValue
+        );
+
+        if (optionExists) {
+            cfgThinkingLevel.value = thinkingValue;
+            if (cfgThinkingCustom) {
+                cfgThinkingCustom.style.display = 'none';
+                cfgThinkingCustom.value = '';
+            }
+        } else if (thinkingValue && cfgThinkingCustom) {
+            // Use custom input for non-standard values
+            cfgThinkingLevel.value = '__custom__';
+            cfgThinkingCustom.value = thinkingValue;
+            cfgThinkingCustom.style.display = '';
+        } else {
+            cfgThinkingLevel.value = thinkingValue;
+            if (cfgThinkingCustom) {
+                cfgThinkingCustom.style.display = 'none';
+                cfgThinkingCustom.value = '';
+            }
+        }
 
         if (cfgSearchMode) {
             cfgSearchMode.value = profile.searchMode;
