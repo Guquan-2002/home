@@ -4,3 +4,4 @@ start-server.bat
 start-server.sh
 .vscode/start-page.code-workspace
 node_modules
+.claude
