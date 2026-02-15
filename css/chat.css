@@ -753,6 +753,16 @@ body.chat-page #chat-page-link {
     white-space: pre-wrap;
 }
 
+.chat-msg.assistant.is-streaming-placeholder {
+    opacity: 0.82;
+    animation-name: msg-appear, typing-soft-blink;
+    animation-duration: 0.25s, 1.8s;
+    animation-timing-function: ease-out, ease-in-out;
+    animation-iteration-count: 1, infinite;
+    animation-fill-mode: both, both;
+    animation-delay: 0ms, 250ms;
+}
+
 .chat-msg.assistant.is-interrupted {
     border: 1px dashed rgba(255, 255, 255, 0.28);
 }

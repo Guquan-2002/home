@@ -258,10 +258,16 @@ export function createUiManager({
      *
      * 用于流式响应时逐步更新内容
      */
-    function createAssistantStreamingMessage(identifiers = {}) {
+    function createAssistantStreamingMessage(identifiers = {}, {
+        initialText = '',
+        placeholder = false
+    } = {}) {
         const messageElement = buildMessageElement('assistant', 'assistant', identifiers);
         messageElement.classList.add('is-streaming');
-        messageElement.textContent = '';
+        if (placeholder) {
+            messageElement.classList.add('is-streaming-placeholder');
+        }
+        messageElement.textContent = typeof initialText === 'string' ? initialText : '';
         return appendMessageElement(messageElement);
     }
 
@@ -293,6 +299,7 @@ export function createUiManager({
         }
 
         messageElement.classList.remove('is-streaming');
+        messageElement.classList.remove('is-streaming-placeholder');
 
         if (interrupted) {
             messageElement.classList.add('is-interrupted');

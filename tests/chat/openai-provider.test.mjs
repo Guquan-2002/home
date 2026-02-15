@@ -364,6 +364,38 @@ test('openai provider supports responses API streaming deltas', async () => {
     assert.equal(deltas.join(''), 'Hello responses');
 });
 
+test('openai responses stream emits reasoning signal before output_text delta', async () => {
+    const encoder = new TextEncoder();
+    const streamBody = new ReadableStream({
+        start(controller) {
+            controller.enqueue(encoder.encode(
+                toSseEvent({ type: 'response.reasoning_summary_text.delta', delta: 'analyzing...' })
+                + toSseEvent({ type: 'response.output_text.delta', delta: 'final answer' })
+                + toDoneEvent()
+            ));
+            controller.close();
+        }
+    });
+
+    const fetchMock = async () => new Response(streamBody, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' }
+    });
+
+    const provider = createOpenAiResponsesProvider({ fetchImpl: fetchMock, maxRetries: 0 });
+    const events = await collectEvents(provider.generateStream({
+        config: createOpenAiConfig({ backupApiKey: '' }),
+        contextMessages,
+        signal: new AbortController().signal
+    }));
+
+    const reasoningEvents = events.filter((event) => event?.type === 'reasoning');
+    assert.equal(reasoningEvents.length > 0, true);
+
+    const deltas = events.filter((event) => event?.type === 'text-delta').map((event) => event.text);
+    assert.equal(deltas.join(''), 'final answer');
+});
+
 test('openai responses provider appends responses path by default', async () => {
     let requestUrl = '';
     const fetchMock = async (url) => {
@@ -460,4 +492,3 @@ test('openai chat completions stream yields ping for empty delta chunks', async 
     const deltas = events.filter((e) => e.type === 'text-delta').map((e) => e.text);
     assert.equal(deltas.join(''), 'hello');
 });
-

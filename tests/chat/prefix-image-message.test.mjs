@@ -60,6 +60,16 @@ function createStore() {
 }
 
 function createUi() {
+    const createStreamingElement = () => ({
+        textContent: '',
+        classList: {
+            add() {},
+            remove() {}
+        },
+        remove() {},
+        isConnected: true
+    });
+
     return {
         addMessage() {},
         addSystemNotice() {},
@@ -67,6 +77,19 @@ function createUi() {
         setStreamingUI() {},
         showRetryNotice() {},
         showBackupKeyNotice() {},
+        createAssistantStreamingMessage() {
+            return createStreamingElement();
+        },
+        updateAssistantStreamingMessage(messageElement, text) {
+            if (messageElement) {
+                messageElement.textContent = text;
+            }
+        },
+        finalizeAssistantStreamingMessage(messageElement, text) {
+            if (messageElement) {
+                messageElement.textContent = text;
+            }
+        },
         addLoadingMessage() {
             return {
                 remove() {},

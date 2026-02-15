@@ -33,6 +33,11 @@
     30% { transform: translateY(-6px); }
 }
 
+@keyframes typing-soft-blink {
+    0%, 100% { opacity: 0.82; }
+    50% { opacity: 0.62; }
+}
+
 @keyframes chat-toggle-pulse {
     0%, 100% { box-shadow: 0 0 0 0 rgba(100, 140, 255, 0.4); }
     50% { box-shadow: 0 0 0 8px rgba(100, 140, 255, 0); }

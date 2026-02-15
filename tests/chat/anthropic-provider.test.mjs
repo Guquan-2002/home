@@ -34,6 +34,15 @@ async function collectDeltas(stream) {
     return deltas;
 }
 
+async function collectEvents(stream) {
+    const events = [];
+    for await (const event of stream) {
+        events.push(event);
+    }
+
+    return events;
+}
+
 test('anthropic provider falls back to backup key when primary key fails', async () => {
     const apiKeys = [];
     const fetchMock = async (_url, options) => {
@@ -137,6 +146,40 @@ test('anthropic provider stream yields text deltas from SSE', async () => {
     }));
 
     assert.equal(deltas.join(''), 'Hello world');
+});
+
+test('anthropic provider stream emits reasoning signal for thinking delta', async () => {
+    const encoder = new TextEncoder();
+    const streamBody = new ReadableStream({
+        start(controller) {
+            controller.enqueue(encoder.encode(
+                toSseEvent(
+                    { type: 'content_block_start', content_block: { type: 'thinking' } },
+                    'content_block_start'
+                )
+                + toSseEvent({ type: 'content_block_delta', delta: { type: 'thinking_delta', thinking: 'plan' } })
+                + toSseEvent({ type: 'content_block_delta', delta: { type: 'text_delta', text: 'Answer' } })
+                + toSseEvent({ type: 'message_stop' }, 'message_stop')
+            ));
+            controller.close();
+        }
+    });
+
+    const fetchMock = async () => new Response(streamBody, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' }
+    });
+
+    const provider = createAnthropicProvider({ fetchImpl: fetchMock, maxRetries: 0 });
+    const events = await collectEvents(provider.generateStream({
+        config: createAnthropicConfig({ backupApiKey: '' }),
+        contextMessages,
+        signal: new AbortController().signal
+    }));
+
+    assert.equal(events.some((event) => event?.type === 'reasoning'), true);
+    const deltas = events.filter((event) => event?.type === 'text-delta').map((event) => event.text);
+    assert.equal(deltas.join(''), 'Answer');
 });
 
 test('anthropic provider stream throws on SSE error event', async () => {

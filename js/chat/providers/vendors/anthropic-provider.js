@@ -76,6 +76,26 @@ function parseAnthropicStreamDelta(responseData) {
         : '';
 }
 
+function parseAnthropicReasoningSignal(responseData) {
+    if (responseData?.type === 'content_block_start') {
+        return responseData?.content_block?.type === 'thinking';
+    }
+
+    if (responseData?.type !== 'content_block_delta') {
+        return false;
+    }
+
+    const deltaType = typeof responseData?.delta?.type === 'string'
+        ? responseData.delta.type
+        : '';
+    if (deltaType === 'thinking_delta' || deltaType === 'signature_delta') {
+        return true;
+    }
+
+    return typeof responseData?.delta?.thinking === 'string'
+        && responseData.delta.thinking.trim().length > 0;
+}
+
 /**
  * 解析 Anthropic 流式响应中的错误事件
  *
@@ -678,6 +698,10 @@ export function createAnthropicProvider({
                             throw new Error(streamError);
                         }
 
+                        if (parseAnthropicReasoningSignal(payload)) {
+                            yield { type: 'reasoning' };
+                        }
+
                         const deltaText = parseAnthropicStreamDelta(payload);
                         if (!deltaText) {
                             continue;
@@ -716,6 +740,5 @@ export function createAnthropicProvider({
         }
     };
 }
-
 
 

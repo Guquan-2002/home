@@ -160,6 +160,70 @@ function parseOpenAiResponseStreamDelta(responseData) {
     return '';
 }
 
+function hasReasoningText(value) {
+    if (typeof value === 'string') {
+        return value.trim().length > 0;
+    }
+
+    if (Array.isArray(value)) {
+        return value.some((item) => hasReasoningText(item));
+    }
+
+    if (!value || typeof value !== 'object') {
+        return false;
+    }
+
+    if (typeof value.text === 'string' && value.text.trim()) {
+        return true;
+    }
+
+    if (typeof value.content === 'string' && value.content.trim()) {
+        return true;
+    }
+
+    if (typeof value.summary === 'string' && value.summary.trim()) {
+        return true;
+    }
+
+    return false;
+}
+
+function parseOpenAiStreamReasoningSignal(responseData, apiMode) {
+    if (isResponsesMode(apiMode)) {
+        const eventType = typeof responseData?.type === 'string'
+            ? responseData.type
+            : '';
+        if (eventType.includes('reasoning')) {
+            return true;
+        }
+
+        const itemType = typeof responseData?.item?.type === 'string'
+            ? responseData.item.type
+            : '';
+        if (itemType.includes('reasoning')) {
+            return true;
+        }
+
+        const outputItemType = typeof responseData?.output_item?.type === 'string'
+            ? responseData.output_item.type
+            : '';
+        return outputItemType.includes('reasoning');
+    }
+
+    const choices = Array.isArray(responseData?.choices) ? responseData.choices : [];
+    return choices.some((choice) => {
+        const delta = choice?.delta;
+        if (!delta || typeof delta !== 'object') {
+            return false;
+        }
+
+        return hasReasoningText(delta.reasoning)
+            || hasReasoningText(delta.reasoning_content)
+            || hasReasoningText(delta.reasoning_text)
+            || hasReasoningText(delta.thinking);
+    });
+}
+
 /** 判断是否为 Responses API 模式 */
 function isResponsesMode(apiMode) {
     return apiMode === OPENAI_API_MODES.responses;
@@ -556,6 +620,10 @@ function createOpenAiProviderByMode({
                     yield { type: 'ping' };
 
                     for await (const payload of readSseJsonEvents(response, signal)) {
+                        if (parseOpenAiStreamReasoningSignal(payload, apiMode)) {
+                            yield { type: 'reasoning' };
+                        }
+
                         const deltaText = isResponsesMode(apiMode)
                             ? parseOpenAiResponseStreamDelta(payload)
                             : parseOpenAiStreamDelta(payload);
@@ -623,5 +691,4 @@ export function createOpenAiResponsesProvider(options = {}) {
         apiMode: OPENAI_API_MODES.responses
     });
 }
-
 

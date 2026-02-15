@@ -25,6 +25,7 @@ import { assertProvider } from '../providers/provider-interface.js';
 const CONTEXT_DEBUG_STORAGE_KEY = 'llm_chat_context_debug';
 const CONTEXT_MAX_MESSAGES_STORAGE_KEY = 'llm_chat_context_max_messages';
 const CONTEXT_DEBUG_PREVIEW_CHARS = 80;
+const ASSISTANT_STREAMING_PLACEHOLDER_TEXT = '正在输入中……';
 
 function asTrimmedString(value) {
     return typeof value === 'string' ? value.trim() : '';
@@ -469,7 +470,18 @@ export function createApiManager({
         notifyContextTrim(contextWindow.isTrimmed);
         logContextWindowDebug(contextWindow, config);
 
-        const loadingMessage = ui.addLoadingMessage();
+        const loadingMessage = config.enablePseudoStream === true
+            ? null
+            : ui.addLoadingMessage();
+        let loadingMessageRemoved = false;
+        const removeLoadingMessage = () => {
+            if (!loadingMessage || loadingMessageRemoved) {
+                return;
+            }
+
+            loadingMessageRemoved = true;
+            loadingMessage.remove();
+        };
 
         const abortController = new AbortController();
         store.startStreaming(abortController);
@@ -496,7 +508,15 @@ export function createApiManager({
 
         const streamState = {
             splitter: null,
-            persistedSegmentCount: 0
+            persistedSegmentCount: 0,
+            activeStreamingMessageEl: null
+        };
+        const dropStreamingPlaceholder = () => {
+            const messageElement = streamState.activeStreamingMessageEl;
+            if (messageElement?.remove) {
+                messageElement.remove();
+            }
+            streamState.activeStreamingMessageEl = null;
         };
         let activeRequestEndpoint = '';
         let activeRequestUsesStreaming = false;
@@ -518,12 +538,12 @@ export function createApiManager({
             });
 
             if (store.getActiveSessionId() !== requestSessionId) {
-                loadingMessage.remove();
+                removeLoadingMessage();
                 return;
             }
 
             clearConnectionTimeout();
-            loadingMessage.remove();
+            removeLoadingMessage();
 
             const renderResult = await renderAssistantSegments(
                 response.segments,
@@ -550,6 +570,40 @@ export function createApiManager({
             });
 
             let segmentIndex = 0;
+            const ensureStreamingPlaceholder = () => {
+                if (streamState.activeStreamingMessageEl) {
+                    return streamState.activeStreamingMessageEl;
+                }
+
+                const messageElement = ui.createAssistantStreamingMessage({}, {
+                    initialText: ASSISTANT_STREAMING_PLACEHOLDER_TEXT,
+                    placeholder: true
+                });
+                streamState.activeStreamingMessageEl = messageElement;
+                return messageElement;
+            };
+            const finalizeStreamingSegment = (segment, createdAt) => {
+                const trimmedSegment = typeof segment === 'string' ? segment.trim() : '';
+                if (!trimmedSegment) {
+                    return false;
+                }
+
+                const messageElement = streamState.activeStreamingMessageEl || ensureStreamingPlaceholder();
+                ui.finalizeAssistantStreamingMessage(messageElement, trimmedSegment);
+                streamState.activeStreamingMessageEl = null;
+
+                const message = createChatMessage({
+                    role: 'assistant',
+                    content: trimmedSegment,
+                    turnId,
+                    metaOptions: {
+                        createdAt
+                    }
+                });
+                store.appendMessages([message]);
+                streamState.persistedSegmentCount += 1;
+                return true;
+            };
             const stream = providerClient.generateStream({
                 config,
                 contextMessages: contextWindow.messages,
@@ -565,37 +619,45 @@ export function createApiManager({
 
             for await (const event of stream) {
                 if (store.getActiveSessionId() !== requestSessionId) {
-                    loadingMessage.remove();
+                    removeLoadingMessage();
+                    dropStreamingPlaceholder();
                     return;
                 }
 
                 // Any SSE event means the connection is established; avoid false timeout on tool events.
                 clearConnectionTimeout();
-                loadingMessage.remove();
+                removeLoadingMessage();
+
+                if (event?.type === 'reasoning') {
+                    ensureStreamingPlaceholder();
+                    continue;
+                }
 
                 if (event?.type !== 'text-delta' || typeof event?.text !== 'string' || !event.text) {
                     continue;
                 }
 
+                ensureStreamingPlaceholder();
                 const completedSegments = streamState.splitter.push(event.text);
                 for (const segment of completedSegments) {
-                    const appended = appendAssistantSegmentImmediate(segment, turnId, Date.now() + segmentIndex);
-                    if (appended) {
+                    if (finalizeStreamingSegment(segment, Date.now() + segmentIndex)) {
                         segmentIndex += 1;
-                        streamState.persistedSegmentCount += 1;
                     }
+                }
+
+                if (completedSegments.length > 0) {
+                    ensureStreamingPlaceholder();
                 }
             }
 
-            loadingMessage.remove();
+            removeLoadingMessage();
             clearConnectionTimeout();
 
             const lastSegment = streamState.splitter.flush();
             if (lastSegment) {
-                const appended = appendAssistantSegmentImmediate(lastSegment, turnId, Date.now() + segmentIndex);
-                if (appended) {
-                    streamState.persistedSegmentCount += 1;
-                }
+                finalizeStreamingSegment(lastSegment, Date.now() + segmentIndex);
+            } else {
+                dropStreamingPlaceholder();
             }
         };
 
@@ -609,7 +671,8 @@ export function createApiManager({
             let error = rawError;
 
             if (store.getActiveSessionId() !== requestSessionId) {
-                loadingMessage.remove();
+                removeLoadingMessage();
+                dropStreamingPlaceholder();
                 return;
             }
 
@@ -619,6 +682,7 @@ export function createApiManager({
 
             if (shouldFallbackToNonStreaming) {
                 streamState.splitter?.discardRemainder();
+                dropStreamingPlaceholder();
                 try {
                     await consumeNonStreamingResponse();
                     return;
@@ -629,7 +693,8 @@ export function createApiManager({
 
             if (error?.name === 'AbortError') {
                 const abortReason = store.getAbortReason();
-                loadingMessage.remove();
+                removeLoadingMessage();
+                dropStreamingPlaceholder();
 
                 if (abortReason === 'connect_timeout') {
                     const detail = buildRequestDiagnosticDetail(config, {
@@ -648,7 +713,8 @@ export function createApiManager({
                     }
                 }
             } else {
-                loadingMessage.remove();
+                removeLoadingMessage();
+                dropStreamingPlaceholder();
                 const detail = buildRequestDiagnosticDetail(config, {
                     endpoint: activeRequestEndpoint,
                     useStreaming: activeRequestUsesStreaming,
@@ -662,7 +728,13 @@ export function createApiManager({
                 clearTimeout(timeoutId);
             }
 
-            loadingMessage.classList.remove('typing');
+            if (shouldUseStreaming
+                && streamState.persistedSegmentCount > 0
+                && store.getActiveSessionId() === requestSessionId) {
+                notifyConversationUpdated();
+            }
+            dropStreamingPlaceholder();
+            loadingMessage?.classList?.remove('typing');
             store.finishStreaming();
             ui.setStreamingUI(false);
             chatInput.focus();

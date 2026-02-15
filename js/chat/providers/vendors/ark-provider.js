@@ -55,6 +55,27 @@ function parseArkResponseStreamDelta(responseData) {
     return '';
 }
 
+function parseArkResponseReasoningSignal(responseData) {
+    const eventType = typeof responseData?.type === 'string'
+        ? responseData.type
+        : '';
+    if (eventType.includes('reasoning')) {
+        return true;
+    }
+
+    const itemType = typeof responseData?.item?.type === 'string'
+        ? responseData.item.type
+        : '';
+    if (itemType.includes('reasoning')) {
+        return true;
+    }
+
+    const outputItemType = typeof responseData?.output_item?.type === 'string'
+        ? responseData.output_item.type
+        : '';
+    return outputItemType.includes('reasoning');
+}
+
 function resolveRequestEnvelope(config, contextMessages, localMessageEnvelope, enableMarkerSplit) {
     const normalizedEnvelope = buildLocalMessageEnvelope(
         localMessageEnvelope || { messages: contextMessages },
@@ -392,6 +413,10 @@ export function createArkProvider({
                     yield { type: 'ping' }; //此处随OPENAI的Responses一起修改，但本API并未出现过类似问题，先保留ping事件以防万一
 
                     for await (const payload of readSseJsonEvents(response, signal)) {
+                        if (parseArkResponseReasoningSignal(payload)) {
+                            yield { type: 'reasoning' };
+                        }
+
                         const deltaText = parseArkResponseStreamDelta(payload);
                         if (!deltaText) {
                             yield { type: 'ping' }; //此处随OPENAI的Responses一起修改，但本API并未出现过类似问题，先保留ping事件以防万一

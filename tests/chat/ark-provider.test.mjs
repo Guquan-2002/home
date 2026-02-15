@@ -37,6 +37,15 @@ async function collectDeltas(stream) {
     return deltas;
 }
 
+async function collectEvents(stream) {
+    const events = [];
+    for await (const event of stream) {
+        events.push(event);
+    }
+
+    return events;
+}
+
 test('ark provider parses non-stream response and maps thinking/web search', async () => {
     let requestBody = null;
     const fetchMock = async (_url, options) => {
@@ -102,6 +111,36 @@ test('ark provider stream yields text deltas from SSE', async () => {
         signal: new AbortController().signal
     }));
 
+    assert.equal(deltas.join(''), 'Hello Ark');
+});
+
+test('ark provider stream emits reasoning signal for reasoning SSE events', async () => {
+    const encoder = new TextEncoder();
+    const streamBody = new ReadableStream({
+        start(controller) {
+            controller.enqueue(encoder.encode(
+                toSseEvent({ type: 'response.reasoning.delta', delta: 'thinking' })
+                + toSseEvent({ type: 'response.output_text.delta', delta: 'Hello Ark' })
+                + toDoneEvent()
+            ));
+            controller.close();
+        }
+    });
+
+    const fetchMock = async () => new Response(streamBody, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' }
+    });
+
+    const provider = createArkProvider({ fetchImpl: fetchMock, maxRetries: 0 });
+    const events = await collectEvents(provider.generateStream({
+        config: createArkConfig({ backupApiKey: '' }),
+        contextMessages,
+        signal: new AbortController().signal
+    }));
+
+    assert.equal(events.some((event) => event?.type === 'reasoning'), true);
+    const deltas = events.filter((event) => event?.type === 'text-delta').map((event) => event.text);
     assert.equal(deltas.join(''), 'Hello Ark');
 });
 
