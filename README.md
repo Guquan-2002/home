@@ -2,9 +2,9 @@
 
 一个现代化的浏览器起始页，集成动态主题、天气、智能搜索和多模型 AI 聊天功能。
 
-![界面](image\README1.png)
+![1771341575244](image/README/1771341575244.png)
 
-## ✨ 核心特性
+# ✨ 核心特性
 
 ### 🎨 动态主题
 
@@ -94,7 +94,7 @@ localStorage.setItem('startpage_config', JSON.stringify({
 | Provider       | Gemini / OpenAI / Anthropic                      |
 | API URL        | 默认官方端点，可自定义                           |
 | API Key        | 主/备双 Key 支持                                 |
-| Model          | 模型名称（如 `gemini-3-pro-preview`）            |
+| Model          | 模型名称（如 `gemini-3-pro-preview`）          |
 | System Prompt  | 系统提示词                                       |
 | Thinking       | 思考预算（Gemini/Anthropic：整数；OpenAI：级别） |
 | Web Search     | 网络搜索工具（各 Provider 格式不同）             |
@@ -183,10 +183,10 @@ localStorage.setItem('llm_chat_context_max_messages', '80');
 
 | 键名                    | 用途                  |
 | ----------------------- | --------------------- |
-| `llm_chat_config`     | 聊天配置                |
-| `llm_chat_history_v2` | 会话历史（schema v3）   |
-| `llm_chat_drafts_v1`  | 草稿（按会话）          |
-| `startpage_config`    | 运行时配置              |
+| `llm_chat_config`     | 聊天配置              |
+| `llm_chat_history_v2` | 会话历史（schema v3） |
+| `llm_chat_drafts_v1`  | 草稿（按会话）        |
+| `startpage_config`    | 运行时配置            |
 
 ## 🌐 浏览器兼容性
 
