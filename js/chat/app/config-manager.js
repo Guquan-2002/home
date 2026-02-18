@@ -20,6 +20,7 @@ const GEMINI_SEARCH_MODES = new Set(['', 'gemini_google_search']);
 const ANTHROPIC_SEARCH_MODES = new Set(['', 'anthropic_web_search']);
 const ARK_SEARCH_MODES = new Set(['', 'ark_web_search']);
 const OPENAI_SEARCH_MODES = new Set(['', 'openai_web_search']);
+const PENDING_THINKING_VALUE_ATTR = 'data-pending-thinking-value';
 
 // 工具函数
 function isOpenAiProvider(provider) {
@@ -49,6 +50,19 @@ function normalizeProvider(rawValue) {
     const provider = typeof rawValue === 'string' ? rawValue.trim().toLowerCase() : '';
     if (provider === 'openai_chat_completions') return CHAT_PROVIDER_IDS.openai;
     return SUPPORTED_PROVIDER_IDS.includes(provider) ? provider : CHAT_DEFAULTS.provider;
+}
+
+function setPendingThinkingValue(field, value) {
+    if (!field) return;
+    const normalized = typeof value === 'string' ? value : '';
+    if (typeof field.setAttribute === 'function') {
+        field.setAttribute(PENDING_THINKING_VALUE_ATTR, normalized);
+        return;
+    }
+    if (!field.dataset || typeof field.dataset !== 'object') {
+        field.dataset = {};
+    }
+    field.dataset.pendingThinkingValue = normalized;
 }
 
 // 搜索模式归一化 + 迁移 openai_web_search_* → openai_web_search
@@ -211,7 +225,10 @@ export function createConfigManager(elements, storageKey) {
         cfgBackupKey.value = profile.backupApiKey;
         cfgModel.value = profile.model;
         if (cfgThinkingLevel) {
-            cfgThinkingLevel.value = formatForUi(provider, profile);
+            const thinkingValue = formatForUi(provider, profile);
+            // Preserve the intended value until provider-specific options are rendered.
+            setPendingThinkingValue(cfgThinkingLevel, thinkingValue);
+            cfgThinkingLevel.value = thinkingValue;
         }
         if (cfgSearchMode) {
             cfgSearchMode.value = profile.searchMode;

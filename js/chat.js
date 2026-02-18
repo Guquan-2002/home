@@ -26,6 +26,8 @@ import { createProviderRouter } from './chat/providers/provider-router.js';
 import { createDraftManager } from './chat/storage/draft-storage.js';
 import { getThinkingOptions, getUiMeta } from './chat/app/thinking-config.js';
 import { initCustomSelect, refreshCustomSelect } from './chat/ui/custom-select.js';
+
+const PENDING_THINKING_VALUE_ATTR = 'data-pending-thinking-value';
 function getChatElements() {
     return {
         panel: $('#chat-panel'),
@@ -77,6 +79,27 @@ function setupInputAutosize(chatInput) {
     chatInput.addEventListener('input', () => {
         resizeChatInput(chatInput);
     });
+}
+
+function readPendingThinkingValue(field) {
+    if (!field) return '';
+    if (typeof field.getAttribute === 'function') {
+        return field.getAttribute(PENDING_THINKING_VALUE_ATTR) || '';
+    }
+    return typeof field.dataset?.pendingThinkingValue === 'string'
+        ? field.dataset.pendingThinkingValue
+        : '';
+}
+
+function clearPendingThinkingValue(field) {
+    if (!field) return;
+    if (typeof field.removeAttribute === 'function') {
+        field.removeAttribute(PENDING_THINKING_VALUE_ATTR);
+        return;
+    }
+    if (field.dataset && typeof field.dataset === 'object') {
+        delete field.dataset.pendingThinkingValue;
+    }
 }
 
 function syncProviderPresentation(elements, providerId) {
@@ -135,7 +158,8 @@ function syncProviderPresentation(elements, providerId) {
 
     if (elements.cfgThinkingLevel) {
         const select = elements.cfgThinkingLevel;
-        const prev = typeof select.value === 'string' ? select.value : '';
+        const pending = readPendingThinkingValue(select);
+        const prev = typeof select.value === 'string' && select.value ? select.value : pending;
         while (select.firstChild) select.removeChild(select.firstChild);
         const optAuto = document.createElement('option');
         optAuto.value = '';
@@ -150,6 +174,7 @@ function syncProviderPresentation(elements, providerId) {
         });
         const values = new Set(options.map((o) => o.value));
         select.value = prev && values.has(prev) ? prev : '';
+        clearPendingThinkingValue(select);
         refreshCustomSelect(select);
         if (elements.cfgProvider) refreshCustomSelect(elements.cfgProvider);
         if (elements.cfgSearchMode) refreshCustomSelect(elements.cfgSearchMode);

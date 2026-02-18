@@ -21,14 +21,23 @@ function createMemoryStorage() {
 
 function createField(initialValue = '', {
     type = 'text',
-    emulateNumberType = false
+    emulateNumberType = false,
+    allowedValues = null
 } = {}) {
     const listeners = new Map();
+    const attributes = new Map();
+    const allowed = Array.isArray(allowedValues)
+        ? new Set(allowedValues.map((value) => String(value ?? '')))
+        : null;
     let fieldType = type;
     let currentValue = String(initialValue);
 
     function normalizeValue(nextValue) {
         const value = String(nextValue ?? '');
+        if (allowed && !allowed.has(value)) {
+            return '';
+        }
+
         if (!emulateNumberType || fieldType !== 'number') {
             return value;
         }
@@ -60,7 +69,16 @@ function createField(initialValue = '', {
             handlers.push(handler);
             listeners.set(eventName, handlers);
         },
-        removeAttribute() {},
+        setAttribute(name, value) {
+            attributes.set(String(name), String(value ?? ''));
+        },
+        getAttribute(name) {
+            const key = String(name);
+            return attributes.has(key) ? attributes.get(key) : null;
+        },
+        removeAttribute(name) {
+            attributes.delete(String(name));
+        },
         dispatchEvent(event) {
             const handlers = listeners.get(event?.type) || [];
             handlers.forEach((handler) => handler(event));
@@ -290,6 +308,32 @@ test('config manager migrates legacy OpenAI web search levels to single mode', (
     const saved = JSON.parse(storage.getItem('llm_chat_config'));
     assert.equal(saved.profiles.openai.searchMode, 'openai_web_search');
     assert.equal(saved.profiles.openai_responses.searchMode, 'openai_web_search');
+});
+
+test('config manager keeps pending thinking value when option list is not ready', () => {
+    const storage = createMemoryStorage();
+    globalThis.localStorage = storage;
+    storage.setItem('llm_chat_config', JSON.stringify({
+        provider: 'openai',
+        profiles: {
+            openai: {
+                apiUrl: 'https://api.openai.com/v1',
+                model: 'gpt-5',
+                thinkingBudget: 'minimal'
+            }
+        }
+    }));
+
+    const elements = createElements();
+    elements.cfgThinkingLevel = createField('', {
+        allowedValues: ['']
+    });
+
+    const manager = createConfigManager(elements, 'llm_chat_config');
+    manager.loadConfig();
+
+    assert.equal(elements.cfgThinkingLevel.value, '');
+    assert.equal(elements.cfgThinkingLevel.getAttribute('data-pending-thinking-value'), 'minimal');
 });
 
 test('config manager clears legacy Anthropic thinkingBudget during migration', () => {
